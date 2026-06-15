@@ -303,10 +303,11 @@ function shell(navItems,content){
 function renderApp(){
   if(!S.user){renderLogin();return;}
   if(S.isAdmin){
-    const nav=[{id:'admin',icon:'🛰️',label:'Cabina di comando'},{id:'analytics',icon:'📊',label:'Analisi'},{id:'roles',icon:'👥',label:'Team'},{id:'targets',icon:'🎯',label:'Obiettivi'},{id:'kpis',icon:'⚙️',label:'KPI & Reparti'}];
-    if(!['admin','analytics','roles','targets','kpis'].includes(S.view))S.view='admin';
+    const nav=[{id:'admin',icon:'🛰️',label:'Cabina di comando'},{id:'plan',icon:'📈',label:'Piano Marketing'},{id:'analytics',icon:'📊',label:'Analisi'},{id:'roles',icon:'👥',label:'Team'},{id:'targets',icon:'🎯',label:'Obiettivi'},{id:'kpis',icon:'⚙️',label:'KPI & Reparti'}];
+    if(!['admin','plan','analytics','roles','targets','kpis'].includes(S.view))S.view='admin';
     const c=el('div'); shell(nav,c);
     if(S.view==='analytics') viewAnalytics(c,'admin');
+    else if(S.view==='plan') viewMarketingPlan(c);
     else if(S.view==='roles') viewTeamAssign(c);
     else if(S.view==='targets') viewTargets(c);
     else if(S.view==='kpis') viewKpiBuilder(c);
@@ -626,6 +627,57 @@ async function viewTrend(c){
   sparkCard.innerHTML=`<div class="card-h"><h3>${north.label} · giorno per giorno</h3></div>
     <div class="spark">${days.map(d=>`<i class="${byDay[d]>=north.daily?'on':''}" style="height:${Math.max(6,Math.round(byDay[d]/max*100))}%" title="${d}: ${fmtv(byDay[d],north.unit)}"></i>`).join('')||'<span class="muted">Nessun dato ancora questo mese.</span>'}</div>`;
   body.appendChild(sparkCard);
+}
+
+/* ---------- ADMIN: PIANO MARKETING (15 giu → 31 dic) ---------- */
+async function viewMarketingPlan(c){
+  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Marketing</h1><p class="sub">Rotta commerciale 15 giu → 31 dic 2026. Dal fatturato obiettivo si ricava tutto il funnel a ritroso. <b>2+2=4</b>.</p></div></div><div id="mkpBody"><div class="empty">Carico il piano…</div></div>`;
+  const [{data:plan},{data:ass}] = await Promise.all([
+    sb.from('marketing_plan').select('*').order('month'),
+    sb.from('marketing_assumptions').select('*').order('key')
+  ]);
+  const body=$('#mkpBody',c); body.innerHTML='';
+  if(!plan||!plan.length){ body.innerHTML='<div class="empty">Nessun piano caricato.</div>'; return; }
+  const sum=(k)=>plan.reduce((a,r)=>a+Number(r[k]||0),0);
+  const eur=(v)=>'€'+nf.format(Math.round(v));
+  const n=(v)=>nf.format(Math.round(v));
+
+  // --- KPI cards riepilogo H2 ---
+  const cards=el('div','stat-grid'); cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px';
+  const kpis=[
+    ['🎯 Fatturato H2', eur(sum('revenue')), 'obiettivo 15 giu → 31 dic'],
+    ['🔁 di cui ricorrente', eur(sum('recurring')), 'SOS / continuativo a dic'],
+    ['🤝 Deal da chiudere', n(sum('deals')), 'clienti nuovi totali'],
+    ['📅 Appuntamenti', n(sum('appts')), 'call di diagnosi presentate'],
+    ['🧲 Lead', n(sum('leads')), 'lead qualificati necessari'],
+    ['💬 Contatti outreach', n(sum('contatti')), 'azioni in cima al funnel'],
+    ['💸 Spesa ads', eur(sum('spend')), 'budget Meta/ads stimato'],
+  ];
+  cards.innerHTML=kpis.map(k=>`<div class="stat"><div class="lbl">${k[0]}</div><div class="val mono">${k[1]}</div><div class="meta">${k[2]}</div></div>`).join('');
+  body.appendChild(cards);
+
+  // --- tabella mensile ---
+  const tcard=el('div','card'); tcard.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
+  let h=`<table class="tbl"><thead><tr>
+    <th>Mese</th><th>Fatturato</th><th>Ricorrente</th><th>Nuovo</th><th>Deal</th><th>Call vendita</th><th>App. fissati</th><th>Lead</th><th>Contatti</th><th>Spesa ads</th>
+  </tr></thead><tbody>`;
+  plan.forEach(r=>{
+    h+=`<tr><td><b>${r.label}</b></td><td class="mono">${eur(r.revenue)}</td><td class="mono">${eur(r.recurring)}</td><td class="mono">${eur(r.new_business)}</td>
+    <td class="mono">${r.deals}</td><td class="mono">${n(r.calls)}</td><td class="mono">${n(r.appts)}</td><td class="mono">${n(r.leads)}</td><td class="mono">${n(r.contatti)}</td><td class="mono">${eur(r.spend)}</td></tr>`;
+  });
+  h+=`<tr style="font-weight:800;background:var(--surface-2)"><td>TOTALE H2</td><td class="mono">${eur(sum('revenue'))}</td><td class="mono">${eur(sum('recurring'))}</td><td class="mono">${eur(sum('new_business'))}</td>
+  <td class="mono">${n(sum('deals'))}</td><td class="mono">${n(sum('calls'))}</td><td class="mono">${n(sum('appts'))}</td><td class="mono">${n(sum('leads'))}</td><td class="mono">${n(sum('contatti'))}</td><td class="mono">${eur(sum('spend'))}</td></tr>`;
+  h+=`</tbody></table>`;
+  tcard.innerHTML=h; body.appendChild(tcard);
+
+  // --- assunzioni (motore del calcolo) ---
+  const acard=el('div','card');
+  acard.innerHTML=`<div class="card-h"><h3>⚙️ Assunzioni del funnel</h3><span class="muted">i numeri che muovono tutto il resto</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px">
+    ${(ass||[]).map(a=>`<div class="stat" style="padding:12px"><div class="lbl">${a.label}</div><div class="val mono" style="font-size:20px">${a.unit==='€'?eur(a.value):a.value+(a.unit||'')}</div></div>`).join('')}
+    </div>
+    <p class="muted" style="margin-top:14px">⚠️ Valori di partenza <b>stimati</b> (modello STS). Da validare con dati reali Lorenzo: appena tarati, l'intero piano si ricalcola di conseguenza.</p>`;
+  body.appendChild(acard);
 }
 
 /* ---------- ADMIN: CABINA DI COMANDO (dashboard, selettore periodo) ---------- */
