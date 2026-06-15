@@ -254,8 +254,9 @@ async function analyticsData(){
 function renderLogin(msg){
   const w=el('div','login-wrap');
   w.innerHTML=`<form class="login" id="lgForm">
-    <div class="lg-brand"><span class="dot">🤝</span> STS Performance OS</div>
-    <p class="lg-sub">Il centro operativo del team. Accedi con il tuo account.</p>
+    <div class="lg-logo"><img src="logo-512.png" alt="Sales Team Solutions"></div>
+    <div class="lg-brand">STS Performance OS</div>
+    <p class="lg-sub">Il centro operativo del team Sales Team Solutions.<br>Accedi con il tuo account.</p>
     <label>Email</label><input id="lgEmail" type="email" autocomplete="email" placeholder="nome@salesteamsolutions.info" required>
     <label>Password</label><input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••" required>
     <button class="btn btn-primary btn-block" type="submit" style="margin-top:20px">Entra</button>
@@ -276,11 +277,11 @@ function shell(navItems,content){
   const name=S.profile?.display_name||S.user.email.split('@')[0];
   const roleLabel = S.isAdmin ? 'Admin' : (ROLES[S.role]?.label||'Collaboratore');
   wrap.innerHTML=`
-  <div class="topbar"><div class="tb-brand"><span class="dot">🤝</span> STS Performance OS</div><button class="burger" id="burger">☰</button></div>
+  <div class="topbar"><div class="tb-brand"><img class="brand-logo" src="logo-96.png" alt="STS"> STS Performance OS</div><button class="burger" id="burger">☰</button></div>
   <div class="scrim" id="scrim"></div>
   <div class="app">
     <aside class="sidebar ${S.sidebarOpen?'open':''}" id="sidebar">
-      <div class="sb-brand"><span class="dot">🤝</span> STS Performance OS</div>
+      <div class="sb-brand"><img class="brand-logo" src="logo-96.png" alt="STS"> STS Performance OS</div>
       <nav class="sb-nav">${navItems.map(n=>`<a class="sb-link ${n.id===S.view?'on':''}" data-v="${n.id}"><span class="i">${n.icon}</span>${n.label}</a>`).join('')}</nav>
       <div class="sb-foot">
         <div class="sb-user"><div class="av">${initials(name)}</div><div><div class="nm">${name}</div><div class="rl">${roleLabel}</div></div></div>
