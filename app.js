@@ -631,7 +631,7 @@ async function viewTrend(c){
 
 /* ---------- ADMIN: PIANO MARKETING (15 giu → 31 dic) ---------- */
 async function viewMarketingPlan(c){
-  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Marketing</h1><p class="sub">Rotta commerciale 15 giu → 31 dic 2026. Dal fatturato obiettivo si ricava tutto il funnel a ritroso. <b>2+2=4</b>.</p></div></div><div id="mkpBody"><div class="empty">Carico il piano…</div></div>`;
+  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Marketing</h1><p class="sub">Rotta 15 giu → 31 dic 2026 · da 70k a 100k/mese. Dal fatturato si ricavano a ritroso <b>due funnel</b>: chi paga (Aziende) e chi inseriamo (Candidati). Modello CANON STS.</p></div></div><div id="mkpBody"><div class="empty">Carico il piano…</div></div>`;
   const [{data:plan},{data:ass}] = await Promise.all([
     sb.from('marketing_plan').select('*').order('month'),
     sb.from('marketing_assumptions').select('*').order('key')
@@ -641,43 +641,59 @@ async function viewMarketingPlan(c){
   const sum=(k)=>plan.reduce((a,r)=>a+Number(r[k]||0),0);
   const eur=(v)=>'€'+nf.format(Math.round(v));
   const n=(v)=>nf.format(Math.round(v));
+  const last=plan[plan.length-1];
 
   // --- KPI cards riepilogo H2 ---
-  const cards=el('div','stat-grid'); cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px';
+  const cards=el('div'); cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px';
   const kpis=[
-    ['🎯 Fatturato H2', eur(sum('revenue')), 'obiettivo 15 giu → 31 dic'],
-    ['🔁 di cui ricorrente', eur(sum('recurring')), 'SOS / continuativo a dic'],
-    ['🤝 Deal da chiudere', n(sum('deals')), 'clienti nuovi totali'],
-    ['📅 Appuntamenti', n(sum('appts')), 'call di diagnosi presentate'],
-    ['🧲 Lead', n(sum('leads')), 'lead qualificati necessari'],
-    ['💬 Contatti outreach', n(sum('contatti')), 'azioni in cima al funnel'],
-    ['💸 Spesa ads', eur(sum('spend')), 'budget Meta/ads stimato'],
+    ['🎯 Fatturato H2', eur(sum('revenue')), '15 giu → 31 dic (70k→100k)'],
+    ['🔁 Ricorrente a dic', eur(last.recurring), 'SOS / continuativo a regime'],
+    ['🤝 Deal Hiring', n(sum('deals')), 'clienti nuovi da chiudere'],
+    ['📅 Call fissate', n(sum('call_fissate')), 'call diagnosi totali'],
+    ['💬 Contatti aziende', n(sum('contatti')), 'outreach in cima al funnel'],
+    ['🧲 Candidature', n(sum('candidature')), 'venditori da reclutare'],
   ];
   cards.innerHTML=kpis.map(k=>`<div class="stat"><div class="lbl">${k[0]}</div><div class="val mono">${k[1]}</div><div class="meta">${k[2]}</div></div>`).join('');
   body.appendChild(cards);
 
-  // --- tabella mensile ---
-  const tcard=el('div','card'); tcard.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
-  let h=`<table class="tbl"><thead><tr>
-    <th>Mese</th><th>Fatturato</th><th>Ricorrente</th><th>Nuovo</th><th>Deal</th><th>Call vendita</th><th>App. fissati</th><th>Lead</th><th>Contatti</th><th>Spesa ads</th>
-  </tr></thead><tbody>`;
-  plan.forEach(r=>{
-    h+=`<tr><td><b>${r.label}</b></td><td class="mono">${eur(r.revenue)}</td><td class="mono">${eur(r.recurring)}</td><td class="mono">${eur(r.new_business)}</td>
-    <td class="mono">${r.deals}</td><td class="mono">${n(r.calls)}</td><td class="mono">${n(r.appts)}</td><td class="mono">${n(r.leads)}</td><td class="mono">${n(r.contatti)}</td><td class="mono">${eur(r.spend)}</td></tr>`;
-  });
-  h+=`<tr style="font-weight:800;background:var(--surface-2)"><td>TOTALE H2</td><td class="mono">${eur(sum('revenue'))}</td><td class="mono">${eur(sum('recurring'))}</td><td class="mono">${eur(sum('new_business'))}</td>
-  <td class="mono">${n(sum('deals'))}</td><td class="mono">${n(sum('calls'))}</td><td class="mono">${n(sum('appts'))}</td><td class="mono">${n(sum('leads'))}</td><td class="mono">${n(sum('contatti'))}</td><td class="mono">${eur(sum('spend'))}</td></tr>`;
-  h+=`</tbody></table>`;
-  tcard.innerHTML=h; body.appendChild(tcard);
+  // --- FUNNEL AZIENDE ---
+  const t1=el('div','card'); t1.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
+  let h1=`<div class="card-h" style="padding:14px 16px 0"><h3>🏢 Funnel AZIENDE — chi paga</h3><span class="muted">ticket 5.500€ · close 40% · show 70% · reply 10%</span></div>
+  <table class="tbl"><thead><tr><th>Mese</th><th>Fatturato</th><th>Ricorrente</th><th>One-shot</th><th>Deal</th><th>Call qualif.</th><th>Call fissate</th><th>Risposte</th><th>Contatti</th></tr></thead><tbody>`;
+  plan.forEach(r=>{ h1+=`<tr><td><b>${r.label}</b></td><td class="mono">${eur(r.revenue)}</td><td class="mono">${eur(r.recurring)}</td><td class="mono">${eur(r.oneshot)}</td><td class="mono">${r.deals}</td><td class="mono">${n(r.call_qualif)}</td><td class="mono">${n(r.call_fissate)}</td><td class="mono">${n(r.risposte)}</td><td class="mono">${n(r.contatti)}</td></tr>`; });
+  h1+=`<tr style="font-weight:800;background:var(--surface-2)"><td>TOT H2</td><td class="mono">${eur(sum('revenue'))}</td><td class="mono">—</td><td class="mono">${eur(sum('oneshot'))}</td><td class="mono">${n(sum('deals'))}</td><td class="mono">${n(sum('call_qualif'))}</td><td class="mono">${n(sum('call_fissate'))}</td><td class="mono">${n(sum('risposte'))}</td><td class="mono">${n(sum('contatti'))}</td></tr></tbody></table>`;
+  t1.innerHTML=h1; body.appendChild(t1);
+
+  // --- FUNNEL CANDIDATI ---
+  const t2=el('div','card'); t2.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
+  let h2=`<div class="card-h" style="padding:14px 16px 0"><h3>🧑‍💼 Funnel CANDIDATI — chi inseriamo</h3><span class="muted">candidature→qualif. 35% · qualif→idoneo 50% · idoneo→inserito 40%</span></div>
+  <table class="tbl"><thead><tr><th>Mese</th><th>Placement</th><th>Figure da inserire</th><th>Idonei</th><th>Qualificati</th><th>Candidature</th></tr></thead><tbody>`;
+  plan.forEach(r=>{ h2+=`<tr><td><b>${r.label}</b></td><td class="mono">${r.placement}</td><td class="mono">${n(r.figure)}</td><td class="mono">${n(r.idonei)}</td><td class="mono">${n(r.qualificati)}</td><td class="mono">${n(r.candidature)}</td></tr>`; });
+  h2+=`<tr style="font-weight:800;background:var(--surface-2)"><td>TOT H2</td><td class="mono">${n(sum('placement'))}</td><td class="mono">${n(sum('figure'))}</td><td class="mono">${n(sum('idonei'))}</td><td class="mono">${n(sum('qualificati'))}</td><td class="mono">${n(sum('candidature'))}</td></tr></tbody></table>`;
+  t2.innerHTML=h2; body.appendChild(t2);
 
   // --- assunzioni (motore del calcolo) ---
   const acard=el('div','card');
-  acard.innerHTML=`<div class="card-h"><h3>⚙️ Assunzioni del funnel</h3><span class="muted">i numeri che muovono tutto il resto</span></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px">
+  acard.innerHTML=`<div class="card-h"><h3>⚙️ Assunzioni del funnel (CANON STS)</h3><span class="muted">i coefficienti che muovono tutto</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px">
     ${(ass||[]).map(a=>`<div class="stat" style="padding:12px"><div class="lbl">${a.label}</div><div class="val mono" style="font-size:20px">${a.unit==='€'?eur(a.value):a.value+(a.unit||'')}</div></div>`).join('')}
     </div>
-    <p class="muted" style="margin-top:14px">⚠️ Valori di partenza <b>stimati</b> (modello STS). Da validare con dati reali Lorenzo: appena tarati, l'intero piano si ricalcola di conseguenza.</p>`;
+    <p class="muted" style="margin-top:14px">Coefficienti dal Master Context STS. La <b>quota ricorrente</b> (SOS) per mese è l'unica stima da validare con Lorenzo: cambiando i valori, l'intero piano si ricalcola.</p>`;
   body.appendChild(acard);
+
+  // --- KPI annuali + budget regime (dal CANON) ---
+  const kcard=el('div','card'); kcard.style.marginTop='16px';
+  kcard.innerHTML=`<div class="card-h"><h3>🎯 Obiettivi annuali & budget a regime</h3><span class="muted">CANON STS 2026</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px">
+    <div class="stat" style="padding:12px"><div class="lbl">Lead inbound aziende</div><div class="val mono" style="font-size:20px">≥30% a Q4</div></div>
+    <div class="stat" style="padding:12px"><div class="lbl">Case study</div><div class="val mono" style="font-size:20px">30 (oggi ~9)</div></div>
+    <div class="stat" style="padding:12px"><div class="lbl">Partnership scuole</div><div class="val mono" style="font-size:20px">≥2 attive</div></div>
+    <div class="stat" style="padding:12px"><div class="lbl">Report marketing</div><div class="val mono" style="font-size:20px">52/52 sett.</div></div>
+    <div class="stat" style="padding:12px"><div class="lbl">Budget ads/mese</div><div class="val mono" style="font-size:20px">~7,3-9,8k</div></div>
+    <div class="stat" style="padding:12px"><div class="lbl">CPL azienda / candidato</div><div class="val mono" style="font-size:20px">40-70€ / ≤12€</div></div>
+    </div>
+    <p class="muted" style="margin-top:14px">Canali aziende: outreach SSS (motore) · LinkedIn · YouTube · referral · ads. Canali candidati: IG/TikTok · ads recruiting · partnership scuole (Anzilmi) · network ex-inseriti.</p>`;
+  body.appendChild(kcard);
 }
 
 /* ---------- ADMIN: CABINA DI COMANDO (dashboard, selettore periodo) ---------- */
