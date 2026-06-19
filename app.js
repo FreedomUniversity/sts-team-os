@@ -315,18 +315,20 @@ function renderApp(){
     return;
   }
   if(S.isManager){
-    const nav=[{id:'admin',icon:'👥',label:'Il mio reparto'},{id:'analytics',icon:'📊',label:'Analisi'}];
-    if(!['admin','analytics'].includes(S.view))S.view='admin';
+    const nav=[{id:'admin',icon:'👥',label:'Il mio reparto'},{id:'analytics',icon:'📊',label:'Analisi'},{id:'plan',icon:'🗺️',label:'Piano Marketing'}];
+    if(!['admin','analytics','plan'].includes(S.view))S.view='admin';
     const c=el('div'); shell(nav,c);
     if(S.view==='analytics') viewAnalytics(c,'manager');
+    else if(S.view==='plan') viewMarketingPlan(c);
     else viewAdmin(c,'manager');
     return;
   }
   if(!S.role){ renderNotAssigned(); return; }
-  const nav=[{id:'today',icon:'📌',label:'Oggi'},{id:'trend',icon:'📈',label:'Andamento'}];
-  if(!['today','trend'].includes(S.view))S.view='today';
+  const nav=[{id:'today',icon:'📌',label:'Oggi'},{id:'trend',icon:'📈',label:'Andamento'},{id:'plan',icon:'🗺️',label:'Piano Marketing'}];
+  if(!['today','trend','plan'].includes(S.view))S.view='today';
   const c=el('div'); shell(nav,c);
   if(S.view==='trend') viewTrend(c);
+  else if(S.view==='plan') viewMarketingPlan(c);
   else viewToday(c);
 }
 
@@ -893,6 +895,38 @@ async function viewAdmin(c,sub){
         </div>
         <div class="muted" style="font-size:11.5px;margin-top:11px">Vendite reali dal KPI "vinti" compilato dal team × prezzo medio €${nf.format(tk)}. L'obiettivo si imposta in <b>📈 Piano Marketing</b>.</div>`;
       body.appendChild(gc);
+
+      // 🔻 FUNNEL REALE DEL MESE — dove si rompe la catena (ogni KPI dal reparto che lo possiede)
+      const roleOf={}; collaborators.forEach(p=>roleOf[p.id]=p.sales_role);
+      const monthEs=entries.filter(e=>e.day>=mFrom&&e.day<=mTo&&collabIds.has(e.user_id));
+      const sumKey=(key,roles)=>monthEs.reduce((a,e)=>a+(roles.includes(roleOf[e.user_id])?+(e.kpis?.[key]||0):0),0);
+      const fst=[
+        {n:'Lead aziende',v:sumKey('lead_aziende',['marketing']),d:'in cima al funnel'},
+        {n:'App. fissati',v:sumKey('appuntamenti_fissati',['setter']),d:'qualifica → appuntamento'},
+        {n:'Presentati',v:sumKey('appuntamenti_processati',['closer']),d:'demo effettuate'},
+        {n:'Vinti',v:sumKey('vinti',['closer']),d:'firma e paga'},
+      ];
+      const convs=fst.slice(1).map((s,i)=>fst[i].v>0?s.v/fst[i].v:null);
+      let blIdx=-1,blVal=2; convs.forEach((cv,i)=>{if(cv!=null&&cv<blVal){blVal=cv;blIdx=i;}});
+      const hasFunnel=fst.some(s=>s.v>0);
+      const planSc=planMonth.rates?.[planMonth.active_scen]||planMonth.rates?.real||{};
+      const closeReal=fst[2].v>0?fst[3].v/fst[2].v:null, closeTgt=+planSc.p2v||null;
+      const fc=el('div','card'); fc.style.marginTop='16px';
+      fc.innerHTML=`<div class="card-h"><h3>🔻 Funnel reale del mese</h3><span class="muted">${planMonth.label} · dai dati compilati · dove si rompe la catena</span></div>`;
+      if(!hasFunnel){ fc.insertAdjacentHTML('beforeend','<div class="empty">Appena il team compila lead, appuntamenti e vinti, qui vedi il funnel reale e il collo di bottiglia.</div>'); }
+      else {
+        fc.insertAdjacentHTML('beforeend',`<div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin-top:8px">
+        ${fst.map((s,i)=>`<div style="flex:1;min-width:120px;text-align:center;padding:14px 8px;border-radius:12px;background:var(--surface-2);position:relative">
+          <div class="mono" style="font-size:26px;font-weight:800;color:var(--brand);line-height:1.1">${s.v}</div>
+          <div style="font-weight:700;font-size:13px;margin-top:2px">${s.n}</div>
+          <div class="muted" style="font-size:11px">${s.d}</div>
+          ${i<fst.length-1?`<div style="position:absolute;right:-13px;top:50%;transform:translateY(-50%);z-index:2;text-align:center">${convs[i]!=null?`<div style="font-size:11px;font-weight:800;color:${i===blIdx?'var(--bad)':'var(--muted)'}">${Math.round(convs[i]*100)}%</div>`:''}<div style="font-size:18px;color:var(--muted)">→</div></div>`:''}
+        </div>`).join('')}
+        </div>
+        ${blIdx>=0?`<div class="banner ${'warn'}" style="margin-top:14px">🔻 <b>Collo di bottiglia: ${fst[blIdx].n} → ${fst[blIdx+1].n}</b> (${Math.round(convs[blIdx]*100)}%). È lì che stai perdendo più clienti questo mese — concentra lì gli sforzi.</div>`:''}
+        ${closeReal!=null&&closeTgt?`<div class="muted" style="font-size:12.5px;margin-top:10px">Close rate reale <b style="color:${closeReal*100>=closeTgt?'var(--good)':'var(--bad)'}">${Math.round(closeReal*100)}%</b> · obiettivo piano <b>${closeTgt}%</b> (Presentati → Vinti).</div>`:''}`);
+      }
+      body.appendChild(fc);
     }
 
     // 🍩 grafico a torta — stato squadra
