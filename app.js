@@ -629,32 +629,42 @@ async function viewTrend(c){
   body.appendChild(sparkCard);
 }
 
-/* ---------- PIANO VENDITE — LUGLIO 2026 (target 80.000€) · modello certificato 9.8 ---------- */
+/* ---------- PIANO VENDITE — LUGLIO 2026 (target 80.000€) · modello live certificato 9.8 ---------- */
 async function viewMarketingPlan(c){
-  // Funnel singolo a 4 fasi: Contatti → Prime chiamate → Presentazioni → Vendite.
-  // Dati reali Meta Ads STS (Maggio consuntivo + Giugno parziale). Statico: nessuna dipendenza dati = nessun NaN.
   const TICKET=4900, OBIETTIVO=80000, INCASSO_PCT=0.5, GG_LAV=23;
   const vendite=Math.round(OBIETTIVO/TICKET);
   const incassoSubito=OBIETTIVO*INCASSO_PCT;
   const eur=v=>'€'+nf.format(Math.round(v));
 
-  // 3 scenari — conversioni reali (ogni 100) + fabbisogno per 80k
-  const scen=[
-    {nome:'Migliore',  tag:'come Maggio',  c2pc:32, pc2p:75, p2v:44, cpl:31, contatti:157, chiamate:50,  pres:37, spesa:4900,  cac:300},
-    {nome:'Realistico',tag:'piano operativo',c2pc:31,pc2p:56, p2v:35, cpl:28, contatti:269, chiamate:83,  pres:47, spesa:7583,  cac:464},
-    {nome:'Peggiore',  tag:'come Giugno',  c2pc:31, pc2p:52, p2v:22, cpl:28, contatti:469, chiamate:144, pres:75, spesa:12970, cac:795},
-  ];
-  const R=scen[1]; // realistico = piano che guida la distribuzione
+  // preset scenari (conversioni reali ogni 100 + costo per contatto)
+  const PRESET={
+    best:  {nome:'Migliore',  tag:'come Maggio', c2pc:32, pc2p:75, p2v:44, cpl:31},
+    real:  {nome:'Realistico',tag:'piano operativo', c2pc:31, pc2p:56, p2v:35, cpl:28},
+    worst: {nome:'Peggiore',  tag:'come Giugno', c2pc:31, pc2p:52, p2v:22, cpl:28},
+  };
+  if(!S.mkScen) S.mkScen='real';
+  if(!S.mkRates) S.mkRates={...PRESET.real};
+  const r=S.mkRates;
 
-  // distribuzione settimanale luglio (front-load: spingere le prime 2 settimane, ad agosto ferie)
-  const wk=[
-    {s:'Sett 1', v:5, pres:14, ch:25, cont:81, spesa:2275},
-    {s:'Sett 2', v:5, pres:14, ch:25, cont:81, spesa:2275},
-    {s:'Sett 3', v:4, pres:12, ch:21, cont:67, spesa:1896},
-    {s:'Sett 4', v:2, pres:7,  ch:13, cont:40, spesa:1137},
-  ];
+  // calcolo a ritroso dal numero di vendite (sempre coerente, mai NaN)
+  const pres=Math.ceil(vendite/(r.p2v/100));
+  const chiamate=Math.ceil(pres/(r.pc2p/100));
+  const contatti=Math.ceil(chiamate/(r.c2pc/100));
+  const spesa=contatti*r.cpl;
+  const cac=spesa/vendite;
+  const contattiDie=Math.ceil(contatti/GG_LAV);
 
-  // consuntivo Maggio (dati reali) — il mese in cui 80k è già stato toccato
+  // distribuzione settimanale (front-load: 5-5-4-2 vendite, ad agosto ferie)
+  const wkV=[5,5,4,2];
+  const wk=wkV.map((v,i)=>{
+    const wp=Math.ceil(v/(r.p2v/100));
+    const wc=Math.ceil(wp/(r.pc2p/100));
+    const wcont=Math.ceil(wc/(r.c2pc/100));
+    return {s:'Sett '+(i+1), v, pres:wp, ch:wc, cont:wcont, spesa:wcont*r.cpl};
+  });
+  const wkTot=wk.reduce((a,x)=>({v:a.v+x.v,pres:a.pres+x.pres,ch:a.ch+x.ch,cont:a.cont+x.cont,spesa:a.spesa+x.spesa}),{v:0,pres:0,ch:0,cont:0,spesa:0});
+
+  // consuntivo Maggio (dati reali)
   const mag=[
     {s:'Sett 1', spesa:950,  cont:8,  ch:5,  pres:3,  v:3},
     {s:'Sett 2', spesa:1257, cont:43, ch:11, pres:7,  v:2},
@@ -663,96 +673,111 @@ async function viewMarketingPlan(c){
   ];
   const magTot={spesa:5107, cont:163, ch:52, pres:39, v:17};
 
-  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Vendite — Luglio 2026</h1><p class="sub">Obiettivo <b>80.000€</b> in un mese · ticket medio 4.900€ → ~16 vendite · si incassa subito il 50% (40.000€) · 23 gg lavorativi. Dal fatturato si ricava il funnel a ritroso. Modello certificato <b>9.8</b> su dati reali Meta Ads.</p></div></div><div id="mkpBody"></div>`;
+  // quale preset è attivo (per evidenziare il bottone)
+  const activeKey=Object.keys(PRESET).find(k=>['c2pc','pc2p','p2v','cpl'].every(f=>PRESET[k][f]===r[f]))||'custom';
+
+  const stages=[
+    {n:'Contatti', v:contatti, d:'lasciano i dati', sub:''},
+    {n:'Prime chiamate', v:chiamate, d:'chiamata di qualifica', sub:r.c2pc+'%'},
+    {n:'Presentazioni', v:pres, d:'la vendita vera', sub:r.pc2p+'%'},
+    {n:'Vendite', v:vendite, d:'firma e paga', sub:r.p2v+'%'},
+  ];
+
+  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Vendite — Luglio 2026</h1><p class="sub">Per fare <b>80.000€</b> servono <b>${vendite} vendite</b> da ${eur(TICKET)}. Incassi subito il 50% (${eur(incassoSubito)}). Scegli lo scenario: il funnel si calcola da solo, a ritroso.</p></div></div><div id="mkpBody"></div>`;
   const body=$('#mkpBody',c); body.innerHTML='';
 
-  // --- KPI cards riepilogo ---
-  const cards=el('div'); cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px';
-  const kpis=[
-    ['🎯 Obiettivo fatturato', eur(OBIETTIVO), 'in 1 mese · Luglio 2026'],
-    ['🤝 Vendite necessarie', vendite, 'ticket medio '+eur(TICKET)],
-    ['💶 Incassato subito', eur(incassoSubito), '50% alla firma'],
-    ['📊 Presentazioni', R.pres, 'piano realistico'],
-    ['📞 Prime chiamate', R.chiamate, 'qualifica in target'],
-    ['🧲 Contatti (lead)', R.contatti, 'in cima al funnel'],
-    ['💸 Spesa ads', eur(R.spesa), 'CPL '+eur(R.cpl)],
-    ['🎯 Costo per cliente', eur(R.cac), 'CAC scenario realistico'],
-  ];
-  cards.innerHTML=kpis.map(k=>`<div class="stat"><div class="lbl">${k[0]}</div><div class="val mono">${k[1]}</div><div class="meta">${k[2]}</div></div>`).join('');
-  body.appendChild(cards);
+  // ===== SELETTORE SCENARIO =====
+  const sel=el('div'); sel.style.cssText='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px';
+  sel.innerHTML=['best','real','worst'].map(k=>{
+    const on=k===activeKey;
+    return `<button class="scn-btn" data-k="${k}" style="flex:1;min-width:150px;cursor:pointer;text-align:left;padding:12px 14px;border-radius:12px;border:2px solid ${on?'var(--brand)':'var(--line)'};background:${on?'var(--brand)':'var(--surface)'};color:${on?'#fff':'var(--text)'};transition:.15s">
+      <div style="font-weight:800;font-size:15px">${PRESET[k].nome}</div>
+      <div style="font-size:12px;opacity:.85">${PRESET[k].tag}</div>
+    </button>`;
+  }).join('') + (activeKey==='custom'?`<div style="flex:1;min-width:150px;padding:12px 14px;border-radius:12px;border:2px dashed var(--brand);color:var(--brand);font-weight:700;display:flex;align-items:center">✏️ Personalizzato</div>`:'');
+  body.appendChild(sel);
 
-  // --- FUNNEL visivo (scenario realistico) ---
+  // ===== FUNNEL GRANDE =====
   const fcard=el('div','card'); fcard.style.marginBottom='16px';
-  const stages=[
-    {n:'Contatti', v:R.contatti, d:'lasciano i dati'},
-    {n:'Prime chiamate', v:R.chiamate, d:`qualifica · ${R.c2pc}%`},
-    {n:'Presentazioni', v:R.pres, d:`la vendita vera · ${R.pc2p}%`},
-    {n:'Vendite', v:vendite, d:`firma+paga · ${R.p2v}%`},
-  ];
-  fcard.innerHTML=`<div class="card-h"><h3>🛣️ Il funnel a 4 fasi</h3><span class="muted">scenario realistico · ogni fase perde una parte</span></div>
+  fcard.innerHTML=`<div class="card-h"><h3>🛣️ La ricetta — scenario ${PRESET[activeKey]?PRESET[activeKey].nome:'personalizzato'}</h3><span class="muted">ogni fase ne perde una parte · la % è quanti avanzano</span></div>
     <div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin-top:10px">
-    ${stages.map((s,i)=>`<div style="flex:1;min-width:120px;text-align:center;padding:14px 10px;border-radius:12px;background:var(--surface-2);position:relative">
-      <div class="mono" style="font-size:26px;font-weight:800;color:var(--brand)">${s.v}</div>
-      <div style="font-weight:700;margin-top:2px">${s.n}</div>
-      <div class="muted" style="font-size:12px;margin-top:2px">${s.d}</div>
-      ${i<stages.length-1?'<div style="position:absolute;right:-13px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--muted);z-index:2">→</div>':''}
+    ${stages.map((s,i)=>`<div style="flex:1;min-width:130px;text-align:center;padding:16px 10px;border-radius:14px;background:var(--surface-2);position:relative">
+      ${i>0?`<div class="muted" style="font-size:11px;font-weight:700;color:var(--brand)">▲ ${s.sub} avanza</div>`:'<div style="height:15px"></div>'}
+      <div class="mono" style="font-size:30px;font-weight:800;color:var(--brand);line-height:1.1">${s.v}</div>
+      <div style="font-weight:700;margin-top:3px">${s.n}</div>
+      <div class="muted" style="font-size:12px">${s.d}</div>
+      ${i<stages.length-1?'<div style="position:absolute;right:-13px;top:50%;transform:translateY(-50%);font-size:22px;color:var(--muted);z-index:2">→</div>':''}
     </div>`).join('')}
     </div>`;
   body.appendChild(fcard);
 
-  // --- TABELLA: cosa serve per 80.000€ (3 scenari) ---
-  const t1=el('div','card'); t1.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
-  t1.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📐 Cosa serve per 80.000€</h3><span class="muted">tre scenari secondo le conversioni reali</span></div>
-  <table class="tbl"><thead><tr><th>In un mese</th>${scen.map(s=>`<th>${s.nome}<br><span class="muted" style="font-weight:400;font-size:11px">${s.tag}</span></th>`).join('')}</tr></thead><tbody>
-    <tr><td><b>Contatti</b></td>${scen.map(s=>`<td class="mono">${s.contatti}</td>`).join('')}</tr>
-    <tr><td><b>Prime chiamate</b></td>${scen.map(s=>`<td class="mono">${s.chiamate}</td>`).join('')}</tr>
-    <tr><td><b>Presentazioni</b></td>${scen.map(s=>`<td class="mono">${s.pres}</td>`).join('')}</tr>
-    <tr><td><b>Vendite</b></td>${scen.map(()=>`<td class="mono">${vendite}</td>`).join('')}</tr>
-    <tr><td><b>Spesa pubblicità</b></td>${scen.map(s=>`<td class="mono">${eur(s.spesa)}</td>`).join('')}</tr>
-    <tr style="font-weight:800;background:var(--surface-2)"><td>Costo per cliente</td>${scen.map(s=>`<td class="mono">${eur(s.cac)}</td>`).join('')}</tr>
-  </tbody></table>`;
-  body.appendChild(t1);
+  // ===== 4 NUMERI CHIAVE =====
+  const cards=el('div'); cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px';
+  cards.innerHTML=[
+    ['💸 Spesa pubblicità', eur(spesa), 'in tutto Luglio'],
+    ['🎯 Costo per cliente', eur(cac), 'spesa ÷ vendite'],
+    ['🧲 Contatti al giorno', contattiDie, 'da generare · '+GG_LAV+' gg lav.'],
+    ['💶 Incassato subito', eur(incassoSubito), '50% alla firma'],
+  ].map(k=>`<div class="stat"><div class="lbl">${k[0]}</div><div class="val mono">${k[1]}</div><div class="meta">${k[2]}</div></div>`).join('');
+  body.appendChild(cards);
 
-  // --- TABELLA: conversioni ogni 100 ---
-  const t2=el('div','card'); t2.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
-  t2.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📉 Quante avanzano (ogni 100)</h3><span class="muted">il motore che muove tutto il piano</span></div>
-  <table class="tbl"><thead><tr><th>Passaggio</th><th>Migliore</th><th>Realistico</th><th>Peggiore</th></tr></thead><tbody>
-    <tr><td><b>Contatti → Prime chiamate</b></td><td class="mono">${scen[0].c2pc}%</td><td class="mono">${scen[1].c2pc}%</td><td class="mono">${scen[2].c2pc}%</td></tr>
-    <tr><td><b>Prime chiamate → Presentazioni</b></td><td class="mono">${scen[0].pc2p}%</td><td class="mono">${scen[1].pc2p}%</td><td class="mono">${scen[2].pc2p}%</td></tr>
-    <tr><td><b>Presentazioni → Vendite</b></td><td class="mono">${scen[0].p2v}%</td><td class="mono">${scen[1].p2v}%</td><td class="mono">${scen[2].p2v}%</td></tr>
-    <tr style="font-weight:800;background:var(--surface-2)"><td>Costo per contatto</td><td class="mono">${eur(scen[0].cpl)}</td><td class="mono">${eur(scen[1].cpl)}</td><td class="mono">${eur(scen[2].cpl)}</td></tr>
-  </tbody></table>`;
-  body.appendChild(t2);
+  // ===== LEVE MODIFICABILI =====
+  const lev=el('div','card'); lev.style.marginBottom='16px';
+  const inputs=[
+    {f:'c2pc',l:'Contatti → Chiamate'},
+    {f:'pc2p',l:'Chiamate → Presentazioni'},
+    {f:'p2v', l:'Presentazioni → Vendite'},
+    {f:'cpl', l:'Costo per contatto (€)'},
+  ];
+  lev.innerHTML=`<div class="card-h"><h3>🎛️ Le leve</h3><span class="muted">cambia un numero → tutto si ricalcola</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:8px">
+    ${inputs.map(i=>`<div><div class="lbl" style="margin-bottom:5px">${i.l}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input class="mk-in" data-f="${i.f}" type="number" value="${r[i.f]}" min="1" step="1" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-weight:700;font-size:15px;font-family:inherit">
+        <span class="muted" style="font-weight:700">${i.f==='cpl'?'€':'%'}</span>
+      </div></div>`).join('')}
+    </div>
+    <p class="muted" style="margin-top:12px">Più sale "Presentazioni → Vendite", meno contatti (e meno spesa) servono. È lì che si vince. <button id="mk-reset" style="cursor:pointer;background:none;border:none;color:var(--brand);font-weight:700;text-decoration:underline;padding:0">↺ rimetti i valori realistici</button></p>`;
+  body.appendChild(lev);
 
-  // --- TABELLA: distribuzione luglio ---
+  // ===== DISTRIBUZIONE LUGLIO =====
   const t3=el('div','card'); t3.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
-  const wkTot=wk.reduce((a,r)=>({v:a.v+r.v,pres:a.pres+r.pres,ch:a.ch+r.ch,cont:a.cont+r.cont,spesa:a.spesa+r.spesa}),{v:0,pres:0,ch:0,cont:0,spesa:0});
-  t3.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>🗓️ Distribuzione del lavoro a Luglio</h3><span class="muted">front-load: spingere le prime 2 settimane (ad agosto ferie). I contatti si generano 1-2 sett. prima della vendita.</span></div>
-  <table class="tbl"><thead><tr><th>Settimana</th><th>Vendite</th><th>Presentazioni</th><th>Prime chiamate</th><th>Contatti</th><th>Spesa</th></tr></thead><tbody>
-    ${wk.map(r=>`<tr><td><b>${r.s}</b></td><td class="mono">${r.v}</td><td class="mono">${r.pres}</td><td class="mono">${r.ch}</td><td class="mono">${r.cont}</td><td class="mono">${eur(r.spesa)}</td></tr>`).join('')}
-    <tr style="font-weight:800;background:var(--surface-2)"><td>Totale</td><td class="mono">${wkTot.v}</td><td class="mono">${wkTot.pres}</td><td class="mono">${wkTot.ch}</td><td class="mono">${wkTot.cont}</td><td class="mono">${eur(wkTot.spesa)}</td></tr>
+  t3.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>🗓️ Settimana per settimana</h3><span class="muted">spingi le prime 2 settimane · i contatti si generano 1-2 sett. prima della vendita</span></div>
+  <table class="tbl"><thead><tr><th>Settimana</th><th>Contatti</th><th>Chiamate</th><th>Presentazioni</th><th>Vendite</th><th>Spesa</th></tr></thead><tbody>
+    ${wk.map(x=>`<tr><td><b>${x.s}</b></td><td class="mono">${x.cont}</td><td class="mono">${x.ch}</td><td class="mono">${x.pres}</td><td class="mono">${x.v}</td><td class="mono">${eur(x.spesa)}</td></tr>`).join('')}
+    <tr style="font-weight:800;background:var(--surface-2)"><td>Totale</td><td class="mono">${wkTot.cont}</td><td class="mono">${wkTot.ch}</td><td class="mono">${wkTot.pres}</td><td class="mono">${wkTot.v}</td><td class="mono">${eur(wkTot.spesa)}</td></tr>
   </tbody></table>`;
   body.appendChild(t3);
 
-  // --- TABELLA: consuntivo Maggio (dati reali) ---
+  // ===== MAGGIO REALE =====
   const t4=el('div','card'); t4.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
-  t4.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📍 Maggio — cosa è successo davvero</h3><span class="muted">consuntivo reale · 17 vendite ≈ 83k già toccato</span></div>
-  <table class="tbl"><thead><tr><th>Settimana</th><th>Spesa</th><th>Contatti</th><th>Prime chiamate</th><th>Presentazioni</th><th>Vendite</th></tr></thead><tbody>
-    ${mag.map(r=>`<tr><td><b>${r.s}</b></td><td class="mono">${eur(r.spesa)}</td><td class="mono">${r.cont}</td><td class="mono">${r.ch}</td><td class="mono">${r.pres}</td><td class="mono">${r.v}</td></tr>`).join('')}
+  t4.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📍 Maggio — cos'è successo davvero</h3><span class="muted">dati reali · 17 vendite ≈ 83k già toccato con 5.107€</span></div>
+  <table class="tbl"><thead><tr><th>Settimana</th><th>Spesa</th><th>Contatti</th><th>Chiamate</th><th>Presentazioni</th><th>Vendite</th></tr></thead><tbody>
+    ${mag.map(x=>`<tr><td><b>${x.s}</b></td><td class="mono">${eur(x.spesa)}</td><td class="mono">${x.cont}</td><td class="mono">${x.ch}</td><td class="mono">${x.pres}</td><td class="mono">${x.v}</td></tr>`).join('')}
     <tr style="font-weight:800;background:var(--surface-2)"><td>Totale</td><td class="mono">${eur(magTot.spesa)}</td><td class="mono">${magTot.cont}</td><td class="mono">${magTot.ch}</td><td class="mono">${magTot.pres}</td><td class="mono">${magTot.v}</td></tr>
   </tbody></table>`;
   body.appendChild(t4);
 
-  // --- insight + caveat ---
+  // ===== 3 VERITÀ =====
   const note=el('div','card');
-  note.innerHTML=`<div class="card-h"><h3>🧠 Le 3 verità del piano</h3></div>
+  note.innerHTML=`<div class="card-h"><h3>🧠 Le 3 cose da ricordare</h3></div>
     <ul style="margin:8px 0 0;padding-left:18px;line-height:1.7">
-      <li><b>80k è già stato fatto a Maggio</b> (17 vendite ≈ 83k con 5.107€). Ma il 70% delle chiusure è in 1 sola settimana → il problema è la <b>costanza</b>, non la capacità.</li>
-      <li><b>Giugno "0 vendite" è un falso allarme</b>: settimane non compilate + lag del funnel (la vendita arriva 1-2 sett. dopo il contatto). Non si conclude su dati incompleti.</li>
-      <li><b>Collo di bottiglia = Presentazioni → Vendite</b> (dal 44% al 22%). È lì che si vince o si perde, non sul budget né sul volume di lead.</li>
+      <li><b>80k l'abbiamo già fatto a Maggio.</b> Ma il 70% delle vendite è in 1 sola settimana → il problema è la <b>costanza</b>, non la capacità.</li>
+      <li><b>Giugno "0 vendite" è un falso allarme:</b> settimane non compilate + la vendita arriva 1-2 sett. dopo il contatto. Non si decide su dati incompleti.</li>
+      <li><b>Il punto debole è "Presentazioni → Vendite"</b> (dal 44% al 22%). Si vince lì, non sul budget né sul numero di lead.</li>
     </ul>
-    <p class="muted" style="margin-top:12px">⚠️ Numeri certificati 9.8 su dati reali Meta Ads (Mag-Giu 2026). Da ri-validare con Lorenzo a fine Giugno completo. Fonte: <code>STS_Griglia_KPI_v1.xlsx</code> · foglio PIANO LUGLIO 2026.</p>`;
+    <p class="muted" style="margin-top:12px">⚠️ Numeri certificati 9.8 su dati reali Meta Ads (Mag-Giu 2026), calcolati in tempo reale e sempre coerenti. Da ri-validare con Lorenzo a Giugno completo. Fonte: <code>STS_Griglia_KPI_v1.xlsx</code>.</p>`;
   body.appendChild(note);
+
+  // ===== INTERAZIONI =====
+  body.querySelectorAll('.scn-btn').forEach(b=>b.addEventListener('click',()=>{
+    S.mkScen=b.dataset.k; S.mkRates={...PRESET[b.dataset.k]}; viewMarketingPlan(c);
+  }));
+  body.querySelectorAll('.mk-in').forEach(i=>i.addEventListener('change',()=>{
+    const v=parseFloat(i.value); if(!isFinite(v)||v<=0){ viewMarketingPlan(c); return; }
+    S.mkRates={...S.mkRates,[i.dataset.f]:v}; S.mkScen='custom'; viewMarketingPlan(c);
+  }));
+  const rb=$('#mk-reset',body); if(rb) rb.addEventListener('click',()=>{ S.mkScen='real'; S.mkRates={...PRESET.real}; viewMarketingPlan(c); });
 }
 
 /* ---------- ADMIN: CABINA DI COMANDO (dashboard, selettore periodo) ---------- */
