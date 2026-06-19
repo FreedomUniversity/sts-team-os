@@ -629,71 +629,130 @@ async function viewTrend(c){
   body.appendChild(sparkCard);
 }
 
-/* ---------- ADMIN: PIANO MARKETING (15 giu → 31 dic) ---------- */
+/* ---------- PIANO VENDITE — LUGLIO 2026 (target 80.000€) · modello certificato 9.8 ---------- */
 async function viewMarketingPlan(c){
-  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Marketing</h1><p class="sub">Rotta 15 giu → 31 dic 2026 · da 70k a 100k/mese. Dal fatturato si ricavano a ritroso <b>due funnel</b>: chi paga (Aziende) e chi inseriamo (Candidati). Modello CANON STS.</p></div></div><div id="mkpBody"><div class="empty">Carico il piano…</div></div>`;
-  const [{data:plan},{data:ass}] = await Promise.all([
-    sb.from('marketing_plan').select('*').order('month'),
-    sb.from('marketing_assumptions').select('*').order('key')
-  ]);
-  const body=$('#mkpBody',c); body.innerHTML='';
-  if(!plan||!plan.length){ body.innerHTML='<div class="empty">Nessun piano caricato.</div>'; return; }
-  const sum=(k)=>plan.reduce((a,r)=>a+Number(r[k]||0),0);
-  const eur=(v)=>'€'+nf.format(Math.round(v));
-  const n=(v)=>nf.format(Math.round(v));
-  const last=plan[plan.length-1];
+  // Funnel singolo a 4 fasi: Contatti → Prime chiamate → Presentazioni → Vendite.
+  // Dati reali Meta Ads STS (Maggio consuntivo + Giugno parziale). Statico: nessuna dipendenza dati = nessun NaN.
+  const TICKET=4900, OBIETTIVO=80000, INCASSO_PCT=0.5, GG_LAV=23;
+  const vendite=Math.round(OBIETTIVO/TICKET);
+  const incassoSubito=OBIETTIVO*INCASSO_PCT;
+  const eur=v=>'€'+nf.format(Math.round(v));
 
-  // --- KPI cards riepilogo H2 ---
+  // 3 scenari — conversioni reali (ogni 100) + fabbisogno per 80k
+  const scen=[
+    {nome:'Migliore',  tag:'come Maggio',  c2pc:32, pc2p:75, p2v:44, cpl:31, contatti:157, chiamate:50,  pres:37, spesa:4900,  cac:300},
+    {nome:'Realistico',tag:'piano operativo',c2pc:31,pc2p:56, p2v:35, cpl:28, contatti:269, chiamate:83,  pres:47, spesa:7583,  cac:464},
+    {nome:'Peggiore',  tag:'come Giugno',  c2pc:31, pc2p:52, p2v:22, cpl:28, contatti:469, chiamate:144, pres:75, spesa:12970, cac:795},
+  ];
+  const R=scen[1]; // realistico = piano che guida la distribuzione
+
+  // distribuzione settimanale luglio (front-load: spingere le prime 2 settimane, ad agosto ferie)
+  const wk=[
+    {s:'Sett 1', v:5, pres:14, ch:25, cont:81, spesa:2275},
+    {s:'Sett 2', v:5, pres:14, ch:25, cont:81, spesa:2275},
+    {s:'Sett 3', v:4, pres:12, ch:21, cont:67, spesa:1896},
+    {s:'Sett 4', v:2, pres:7,  ch:13, cont:40, spesa:1137},
+  ];
+
+  // consuntivo Maggio (dati reali) — il mese in cui 80k è già stato toccato
+  const mag=[
+    {s:'Sett 1', spesa:950,  cont:8,  ch:5,  pres:3,  v:3},
+    {s:'Sett 2', spesa:1257, cont:43, ch:11, pres:7,  v:2},
+    {s:'Sett 3', spesa:1455, cont:66, ch:8,  pres:5,  v:0},
+    {s:'Sett 4', spesa:1445, cont:46, ch:28, pres:24, v:12},
+  ];
+  const magTot={spesa:5107, cont:163, ch:52, pres:39, v:17};
+
+  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Vendite — Luglio 2026</h1><p class="sub">Obiettivo <b>80.000€</b> in un mese · ticket medio 4.900€ → ~16 vendite · si incassa subito il 50% (40.000€) · 23 gg lavorativi. Dal fatturato si ricava il funnel a ritroso. Modello certificato <b>9.8</b> su dati reali Meta Ads.</p></div></div><div id="mkpBody"></div>`;
+  const body=$('#mkpBody',c); body.innerHTML='';
+
+  // --- KPI cards riepilogo ---
   const cards=el('div'); cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px';
   const kpis=[
-    ['🎯 Fatturato H2', eur(sum('revenue')), '15 giu → 31 dic (70k→100k)'],
-    ['🔁 Ricorrente a dic', eur(last.recurring), 'SOS / continuativo a regime'],
-    ['🤝 Deal Hiring', n(sum('deals')), 'clienti nuovi da chiudere'],
-    ['📅 Call fissate', n(sum('call_fissate')), 'call diagnosi totali'],
-    ['💬 Contatti aziende', n(sum('contatti')), 'outreach in cima al funnel'],
-    ['🧲 Candidature', n(sum('candidature')), 'venditori da reclutare'],
+    ['🎯 Obiettivo fatturato', eur(OBIETTIVO), 'in 1 mese · Luglio 2026'],
+    ['🤝 Vendite necessarie', vendite, 'ticket medio '+eur(TICKET)],
+    ['💶 Incassato subito', eur(incassoSubito), '50% alla firma'],
+    ['📊 Presentazioni', R.pres, 'piano realistico'],
+    ['📞 Prime chiamate', R.chiamate, 'qualifica in target'],
+    ['🧲 Contatti (lead)', R.contatti, 'in cima al funnel'],
+    ['💸 Spesa ads', eur(R.spesa), 'CPL '+eur(R.cpl)],
+    ['🎯 Costo per cliente', eur(R.cac), 'CAC scenario realistico'],
   ];
   cards.innerHTML=kpis.map(k=>`<div class="stat"><div class="lbl">${k[0]}</div><div class="val mono">${k[1]}</div><div class="meta">${k[2]}</div></div>`).join('');
   body.appendChild(cards);
 
-  // --- FUNNEL AZIENDE ---
+  // --- FUNNEL visivo (scenario realistico) ---
+  const fcard=el('div','card'); fcard.style.marginBottom='16px';
+  const stages=[
+    {n:'Contatti', v:R.contatti, d:'lasciano i dati'},
+    {n:'Prime chiamate', v:R.chiamate, d:`qualifica · ${R.c2pc}%`},
+    {n:'Presentazioni', v:R.pres, d:`la vendita vera · ${R.pc2p}%`},
+    {n:'Vendite', v:vendite, d:`firma+paga · ${R.p2v}%`},
+  ];
+  fcard.innerHTML=`<div class="card-h"><h3>🛣️ Il funnel a 4 fasi</h3><span class="muted">scenario realistico · ogni fase perde una parte</span></div>
+    <div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin-top:10px">
+    ${stages.map((s,i)=>`<div style="flex:1;min-width:120px;text-align:center;padding:14px 10px;border-radius:12px;background:var(--surface-2);position:relative">
+      <div class="mono" style="font-size:26px;font-weight:800;color:var(--brand)">${s.v}</div>
+      <div style="font-weight:700;margin-top:2px">${s.n}</div>
+      <div class="muted" style="font-size:12px;margin-top:2px">${s.d}</div>
+      ${i<stages.length-1?'<div style="position:absolute;right:-13px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--muted);z-index:2">→</div>':''}
+    </div>`).join('')}
+    </div>`;
+  body.appendChild(fcard);
+
+  // --- TABELLA: cosa serve per 80.000€ (3 scenari) ---
   const t1=el('div','card'); t1.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
-  let h1=`<div class="card-h" style="padding:14px 16px 0"><h3>🏢 Funnel AZIENDE — chi paga</h3><span class="muted">ticket 5.500€ · close 40% · show 70% · reply 10%</span></div>
-  <table class="tbl"><thead><tr><th>Mese</th><th>Fatturato</th><th>Ricorrente</th><th>One-shot</th><th>Deal</th><th>Call qualif.</th><th>Call fissate</th><th>Risposte</th><th>Contatti</th></tr></thead><tbody>`;
-  plan.forEach(r=>{ h1+=`<tr><td><b>${r.label}</b></td><td class="mono">${eur(r.revenue)}</td><td class="mono">${eur(r.recurring)}</td><td class="mono">${eur(r.oneshot)}</td><td class="mono">${r.deals}</td><td class="mono">${n(r.call_qualif)}</td><td class="mono">${n(r.call_fissate)}</td><td class="mono">${n(r.risposte)}</td><td class="mono">${n(r.contatti)}</td></tr>`; });
-  h1+=`<tr style="font-weight:800;background:var(--surface-2)"><td>TOT H2</td><td class="mono">${eur(sum('revenue'))}</td><td class="mono">—</td><td class="mono">${eur(sum('oneshot'))}</td><td class="mono">${n(sum('deals'))}</td><td class="mono">${n(sum('call_qualif'))}</td><td class="mono">${n(sum('call_fissate'))}</td><td class="mono">${n(sum('risposte'))}</td><td class="mono">${n(sum('contatti'))}</td></tr></tbody></table>`;
-  t1.innerHTML=h1; body.appendChild(t1);
+  t1.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📐 Cosa serve per 80.000€</h3><span class="muted">tre scenari secondo le conversioni reali</span></div>
+  <table class="tbl"><thead><tr><th>In un mese</th>${scen.map(s=>`<th>${s.nome}<br><span class="muted" style="font-weight:400;font-size:11px">${s.tag}</span></th>`).join('')}</tr></thead><tbody>
+    <tr><td><b>Contatti</b></td>${scen.map(s=>`<td class="mono">${s.contatti}</td>`).join('')}</tr>
+    <tr><td><b>Prime chiamate</b></td>${scen.map(s=>`<td class="mono">${s.chiamate}</td>`).join('')}</tr>
+    <tr><td><b>Presentazioni</b></td>${scen.map(s=>`<td class="mono">${s.pres}</td>`).join('')}</tr>
+    <tr><td><b>Vendite</b></td>${scen.map(()=>`<td class="mono">${vendite}</td>`).join('')}</tr>
+    <tr><td><b>Spesa pubblicità</b></td>${scen.map(s=>`<td class="mono">${eur(s.spesa)}</td>`).join('')}</tr>
+    <tr style="font-weight:800;background:var(--surface-2)"><td>Costo per cliente</td>${scen.map(s=>`<td class="mono">${eur(s.cac)}</td>`).join('')}</tr>
+  </tbody></table>`;
+  body.appendChild(t1);
 
-  // --- FUNNEL CANDIDATI ---
+  // --- TABELLA: conversioni ogni 100 ---
   const t2=el('div','card'); t2.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
-  let h2=`<div class="card-h" style="padding:14px 16px 0"><h3>🧑‍💼 Funnel CANDIDATI — chi inseriamo</h3><span class="muted">candidature→qualif. 35% · qualif→idoneo 50% · idoneo→inserito 40%</span></div>
-  <table class="tbl"><thead><tr><th>Mese</th><th>Placement</th><th>Figure da inserire</th><th>Idonei</th><th>Qualificati</th><th>Candidature</th></tr></thead><tbody>`;
-  plan.forEach(r=>{ h2+=`<tr><td><b>${r.label}</b></td><td class="mono">${r.placement}</td><td class="mono">${n(r.figure)}</td><td class="mono">${n(r.idonei)}</td><td class="mono">${n(r.qualificati)}</td><td class="mono">${n(r.candidature)}</td></tr>`; });
-  h2+=`<tr style="font-weight:800;background:var(--surface-2)"><td>TOT H2</td><td class="mono">${n(sum('placement'))}</td><td class="mono">${n(sum('figure'))}</td><td class="mono">${n(sum('idonei'))}</td><td class="mono">${n(sum('qualificati'))}</td><td class="mono">${n(sum('candidature'))}</td></tr></tbody></table>`;
-  t2.innerHTML=h2; body.appendChild(t2);
+  t2.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📉 Quante avanzano (ogni 100)</h3><span class="muted">il motore che muove tutto il piano</span></div>
+  <table class="tbl"><thead><tr><th>Passaggio</th><th>Migliore</th><th>Realistico</th><th>Peggiore</th></tr></thead><tbody>
+    <tr><td><b>Contatti → Prime chiamate</b></td><td class="mono">${scen[0].c2pc}%</td><td class="mono">${scen[1].c2pc}%</td><td class="mono">${scen[2].c2pc}%</td></tr>
+    <tr><td><b>Prime chiamate → Presentazioni</b></td><td class="mono">${scen[0].pc2p}%</td><td class="mono">${scen[1].pc2p}%</td><td class="mono">${scen[2].pc2p}%</td></tr>
+    <tr><td><b>Presentazioni → Vendite</b></td><td class="mono">${scen[0].p2v}%</td><td class="mono">${scen[1].p2v}%</td><td class="mono">${scen[2].p2v}%</td></tr>
+    <tr style="font-weight:800;background:var(--surface-2)"><td>Costo per contatto</td><td class="mono">${eur(scen[0].cpl)}</td><td class="mono">${eur(scen[1].cpl)}</td><td class="mono">${eur(scen[2].cpl)}</td></tr>
+  </tbody></table>`;
+  body.appendChild(t2);
 
-  // --- assunzioni (motore del calcolo) ---
-  const acard=el('div','card');
-  acard.innerHTML=`<div class="card-h"><h3>⚙️ Assunzioni del funnel (CANON STS)</h3><span class="muted">i coefficienti che muovono tutto</span></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px">
-    ${(ass||[]).map(a=>`<div class="stat" style="padding:12px"><div class="lbl">${a.label}</div><div class="val mono" style="font-size:20px">${a.unit==='€'?eur(a.value):a.value+(a.unit||'')}</div></div>`).join('')}
-    </div>
-    <p class="muted" style="margin-top:14px">Coefficienti dal Master Context STS. La <b>quota ricorrente</b> (SOS) per mese è l'unica stima da validare con Lorenzo: cambiando i valori, l'intero piano si ricalcola.</p>`;
-  body.appendChild(acard);
+  // --- TABELLA: distribuzione luglio ---
+  const t3=el('div','card'); t3.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
+  const wkTot=wk.reduce((a,r)=>({v:a.v+r.v,pres:a.pres+r.pres,ch:a.ch+r.ch,cont:a.cont+r.cont,spesa:a.spesa+r.spesa}),{v:0,pres:0,ch:0,cont:0,spesa:0});
+  t3.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>🗓️ Distribuzione del lavoro a Luglio</h3><span class="muted">front-load: spingere le prime 2 settimane (ad agosto ferie). I contatti si generano 1-2 sett. prima della vendita.</span></div>
+  <table class="tbl"><thead><tr><th>Settimana</th><th>Vendite</th><th>Presentazioni</th><th>Prime chiamate</th><th>Contatti</th><th>Spesa</th></tr></thead><tbody>
+    ${wk.map(r=>`<tr><td><b>${r.s}</b></td><td class="mono">${r.v}</td><td class="mono">${r.pres}</td><td class="mono">${r.ch}</td><td class="mono">${r.cont}</td><td class="mono">${eur(r.spesa)}</td></tr>`).join('')}
+    <tr style="font-weight:800;background:var(--surface-2)"><td>Totale</td><td class="mono">${wkTot.v}</td><td class="mono">${wkTot.pres}</td><td class="mono">${wkTot.ch}</td><td class="mono">${wkTot.cont}</td><td class="mono">${eur(wkTot.spesa)}</td></tr>
+  </tbody></table>`;
+  body.appendChild(t3);
 
-  // --- KPI annuali + budget regime (dal CANON) ---
-  const kcard=el('div','card'); kcard.style.marginTop='16px';
-  kcard.innerHTML=`<div class="card-h"><h3>🎯 Obiettivi annuali & budget a regime</h3><span class="muted">CANON STS 2026</span></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px">
-    <div class="stat" style="padding:12px"><div class="lbl">Lead inbound aziende</div><div class="val mono" style="font-size:20px">≥30% a Q4</div></div>
-    <div class="stat" style="padding:12px"><div class="lbl">Case study</div><div class="val mono" style="font-size:20px">30 (oggi ~9)</div></div>
-    <div class="stat" style="padding:12px"><div class="lbl">Partnership scuole</div><div class="val mono" style="font-size:20px">≥2 attive</div></div>
-    <div class="stat" style="padding:12px"><div class="lbl">Report marketing</div><div class="val mono" style="font-size:20px">52/52 sett.</div></div>
-    <div class="stat" style="padding:12px"><div class="lbl">Budget ads/mese</div><div class="val mono" style="font-size:20px">~7,3-9,8k</div></div>
-    <div class="stat" style="padding:12px"><div class="lbl">CPL azienda / candidato</div><div class="val mono" style="font-size:20px">40-70€ / ≤12€</div></div>
-    </div>
-    <p class="muted" style="margin-top:14px">Canali aziende: outreach SSS (motore) · LinkedIn · YouTube · referral · ads. Canali candidati: IG/TikTok · ads recruiting · partnership scuole (Anzilmi) · network ex-inseriti.</p>`;
-  body.appendChild(kcard);
+  // --- TABELLA: consuntivo Maggio (dati reali) ---
+  const t4=el('div','card'); t4.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
+  t4.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📍 Maggio — cosa è successo davvero</h3><span class="muted">consuntivo reale · 17 vendite ≈ 83k già toccato</span></div>
+  <table class="tbl"><thead><tr><th>Settimana</th><th>Spesa</th><th>Contatti</th><th>Prime chiamate</th><th>Presentazioni</th><th>Vendite</th></tr></thead><tbody>
+    ${mag.map(r=>`<tr><td><b>${r.s}</b></td><td class="mono">${eur(r.spesa)}</td><td class="mono">${r.cont}</td><td class="mono">${r.ch}</td><td class="mono">${r.pres}</td><td class="mono">${r.v}</td></tr>`).join('')}
+    <tr style="font-weight:800;background:var(--surface-2)"><td>Totale</td><td class="mono">${eur(magTot.spesa)}</td><td class="mono">${magTot.cont}</td><td class="mono">${magTot.ch}</td><td class="mono">${magTot.pres}</td><td class="mono">${magTot.v}</td></tr>
+  </tbody></table>`;
+  body.appendChild(t4);
+
+  // --- insight + caveat ---
+  const note=el('div','card');
+  note.innerHTML=`<div class="card-h"><h3>🧠 Le 3 verità del piano</h3></div>
+    <ul style="margin:8px 0 0;padding-left:18px;line-height:1.7">
+      <li><b>80k è già stato fatto a Maggio</b> (17 vendite ≈ 83k con 5.107€). Ma il 70% delle chiusure è in 1 sola settimana → il problema è la <b>costanza</b>, non la capacità.</li>
+      <li><b>Giugno "0 vendite" è un falso allarme</b>: settimane non compilate + lag del funnel (la vendita arriva 1-2 sett. dopo il contatto). Non si conclude su dati incompleti.</li>
+      <li><b>Collo di bottiglia = Presentazioni → Vendite</b> (dal 44% al 22%). È lì che si vince o si perde, non sul budget né sul volume di lead.</li>
+    </ul>
+    <p class="muted" style="margin-top:12px">⚠️ Numeri certificati 9.8 su dati reali Meta Ads (Mag-Giu 2026). Da ri-validare con Lorenzo a fine Giugno completo. Fonte: <code>STS_Griglia_KPI_v1.xlsx</code> · foglio PIANO LUGLIO 2026.</p>`;
+  body.appendChild(note);
 }
 
 /* ---------- ADMIN: CABINA DI COMANDO (dashboard, selettore periodo) ---------- */
