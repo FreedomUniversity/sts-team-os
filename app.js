@@ -714,8 +714,8 @@ async function viewMarketingPlan(c){
   // ===== 4 NUMERI CHIAVE =====
   const cards=el('div'); cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px';
   cards.innerHTML=[
-    ['💸 Spesa pubblicità', eur(spesa), 'in tutto Luglio'],
-    ['🎯 Costo per cliente', eur(cac), 'spesa ÷ vendite'],
+    ['💸 Budget ads', eur(spesa), 'in tutto Luglio'],
+    ['🎯 Costo per cliente', eur(cac), 'budget ÷ vendite'],
     ['🧲 Contatti al giorno', contattiDie, 'da generare · '+GG_LAV+' gg lav.'],
     ['💶 Incassato subito', eur(incassoSubito), '50% alla firma'],
   ].map(k=>`<div class="stat"><div class="lbl">${k[0]}</div><div class="val mono">${k[1]}</div><div class="meta">${k[2]}</div></div>`).join('');
@@ -737,13 +737,13 @@ async function viewMarketingPlan(c){
         <span class="muted" style="font-weight:700">${i.f==='cpl'?'€':'%'}</span>
       </div></div>`).join('')}
     </div>
-    <p class="muted" style="margin-top:12px">Più sale "Presentazioni → Vendite", meno contatti (e meno spesa) servono. È lì che si vince. <button id="mk-reset" style="cursor:pointer;background:none;border:none;color:var(--brand);font-weight:700;text-decoration:underline;padding:0">↺ rimetti i valori realistici</button></p>`;
+    <p class="muted" style="margin-top:12px">Più sale "Presentazioni → Vendite", meno contatti (e meno budget) servono. È lì che si vince. <button id="mk-reset" style="cursor:pointer;background:none;border:none;color:var(--brand);font-weight:700;text-decoration:underline;padding:0">↺ rimetti i valori realistici</button></p>`;
   body.appendChild(lev);
 
   // ===== DISTRIBUZIONE LUGLIO =====
   const t3=el('div','card'); t3.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
   t3.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>🗓️ Settimana per settimana</h3><span class="muted">spingi le prime 2 settimane · i contatti si generano 1-2 sett. prima della vendita</span></div>
-  <table class="tbl"><thead><tr><th>Settimana</th><th>Contatti</th><th>Chiamate</th><th>Presentazioni</th><th>Vendite</th><th>Spesa</th></tr></thead><tbody>
+  <table class="tbl"><thead><tr><th>Settimana</th><th>Contatti</th><th>Chiamate</th><th>Presentazioni</th><th>Vendite</th><th>Budget ads</th></tr></thead><tbody>
     ${wk.map(x=>`<tr><td><b>${x.s}</b></td><td class="mono">${x.cont}</td><td class="mono">${x.ch}</td><td class="mono">${x.pres}</td><td class="mono">${x.v}</td><td class="mono">${eur(x.spesa)}</td></tr>`).join('')}
     <tr style="font-weight:800;background:var(--surface-2)"><td>Totale</td><td class="mono">${wkTot.cont}</td><td class="mono">${wkTot.ch}</td><td class="mono">${wkTot.pres}</td><td class="mono">${wkTot.v}</td><td class="mono">${eur(wkTot.spesa)}</td></tr>
   </tbody></table>`;
@@ -752,7 +752,7 @@ async function viewMarketingPlan(c){
   // ===== MAGGIO REALE =====
   const t4=el('div','card'); t4.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
   t4.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>📍 Maggio — cos'è successo davvero</h3><span class="muted">dati reali · 17 vendite ≈ 83k già toccato con 5.107€</span></div>
-  <table class="tbl"><thead><tr><th>Settimana</th><th>Spesa</th><th>Contatti</th><th>Chiamate</th><th>Presentazioni</th><th>Vendite</th></tr></thead><tbody>
+  <table class="tbl"><thead><tr><th>Settimana</th><th>Budget ads</th><th>Contatti</th><th>Chiamate</th><th>Presentazioni</th><th>Vendite</th></tr></thead><tbody>
     ${mag.map(x=>`<tr><td><b>${x.s}</b></td><td class="mono">${eur(x.spesa)}</td><td class="mono">${x.cont}</td><td class="mono">${x.ch}</td><td class="mono">${x.pres}</td><td class="mono">${x.v}</td></tr>`).join('')}
     <tr style="font-weight:800;background:var(--surface-2)"><td>Totale</td><td class="mono">${eur(magTot.spesa)}</td><td class="mono">${magTot.cont}</td><td class="mono">${magTot.ch}</td><td class="mono">${magTot.pres}</td><td class="mono">${magTot.v}</td></tr>
   </tbody></table>`;
