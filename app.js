@@ -791,6 +791,8 @@ async function viewAdmin(c,sub){
     <div id="cabCtrl" class="card" style="margin-bottom:14px"></div>
     <div id="adminBody"><div class="empty">Carico i dati del team…</div></div>`;
   const {profiles,entries}=await analyticsData();
+  const curMonthKey=isoDay(monthStart()).slice(0,7);
+  let planMonth=null; try{ const {data}=await sb.from('marketing_months').select('*').eq('month',curMonthKey).maybeSingle(); planMonth=data; }catch(_){}
   let collaborators=profiles.filter(p=>p.role!=='admin'&&p.sales_role&&p.trackable!==false&&p.active!==false);
   if(isMgr) collaborators=collaborators.filter(p=>p.sales_role===S.role);
   const collabIds=new Set(collaborators.map(p=>p.id));
@@ -867,6 +869,31 @@ async function viewAdmin(c,sub){
       <div class="stat"><div class="lbl">🎬 Presentati</div><div class="val mono">${pres}</div><div class="meta">tasso presenza ${showUp!=null?showUp+'%':'—'}</div></div>
       <div class="stat"><div class="lbl">📈 Conversione</div><div class="val mono">${conv!=null?conv+'%':'—'}</div><div class="meta">vinti / presentati</div></div>`;
     body.appendChild(g3);
+
+    // 📈 OBIETTIVO DEL MESE — ponte col Piano Marketing (solo Cabina azienda)
+    if(!isMgr && planMonth){
+      const tk=+planMonth.ticket||4900, obj=+planMonth.obiettivo||0, vTarget=tk?Math.round(obj/tk):0;
+      const mFrom=isoDay(monthStart()), mTo=isoDay(today());
+      let mVinti=0; entries.filter(e=>e.day>=mFrom&&e.day<=mTo&&collabIds.has(e.user_id)).forEach(e=>{mVinti+=+(e.kpis?.vinti||0);});
+      const fatt=mVinti*tk, gpct=obj?fatt/obj:0;
+      const wdEl=Math.max(1,workdaysElapsedMonth()), proj=mVinti/wdEl*WORKDAYS_MONTH, projFatt=proj*tk;
+      const idealPct=wdEl/WORKDAYS_MONTH, gst=gpct>=idealPct?'good':gpct>=idealPct*0.7?'warn':'bad';
+      const gc=el('div','card'); gc.style.marginTop='16px';
+      gc.innerHTML=`<div class="card-h"><h3>📈 Obiettivo del mese · Piano Marketing</h3><span class="muted">${planMonth.label} · mese corrente</span></div>
+        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-size:31px;font-weight:800;color:var(--brand);letter-spacing:-.02em">€${nf.format(Math.round(fatt))}</div>
+          <div class="muted">su <b>€${nf.format(obj)}</b> obiettivo · <b>${mVinti}/${vTarget}</b> vendite</div>
+        </div>
+        <div class="bar ${gst}"><span style="width:${Math.min(100,Math.round(gpct*100))}%"></span></div>
+        <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:14px;font-size:13px">
+          <div><div class="muted" style="font-size:11px">Raggiunto</div><b style="font-size:16px">${Math.round(gpct*100)}%</b></div>
+          <div><div class="muted" style="font-size:11px">A ritmo costante chiudi a</div><b style="font-size:16px;color:${projFatt>=obj?'var(--good)':'var(--warn)'}">€${nf.format(Math.round(projFatt))}</b> <span class="muted">(${Math.round(proj)} vendite)</span></div>
+          <div><div class="muted" style="font-size:11px">Mancano</div><b style="font-size:16px">€${nf.format(Math.max(0,Math.round(obj-fatt)))}</b></div>
+          <div><div class="muted" style="font-size:11px">Giorni mese</div><b style="font-size:16px">${wdEl}/${WORKDAYS_MONTH}</b></div>
+        </div>
+        <div class="muted" style="font-size:11.5px;margin-top:11px">Vendite reali dal KPI "vinti" compilato dal team × prezzo medio €${nf.format(tk)}. L'obiettivo si imposta in <b>📈 Piano Marketing</b>.</div>`;
+      body.appendChild(gc);
+    }
 
     // 🍩 grafico a torta — stato squadra
     const a=inTargetN,b=underN,dd=missN,tot=Math.max(1,a+b+dd);
