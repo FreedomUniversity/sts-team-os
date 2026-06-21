@@ -687,6 +687,20 @@ async function viewMarketingPlan(c){
   msel.innerHTML=rows.map(r=>{const on=r.month===S.mkMonth;return `<button class="mm-month" data-m="${r.month}" style="cursor:pointer;padding:9px 16px;border-radius:999px;border:2px solid ${on?'var(--brand)':'var(--line)'};background:${on?'var(--brand)':'var(--surface)'};color:${on?'#fff':'var(--text)'};font-weight:700;font-size:14px">${r.label.replace(' 2026','')}</button>`;}).join('');
   bd.appendChild(msel);
 
+  // ===== TUTTO L'H2 A COLPO D'OCCHIO =====
+  const ov=el('div','card'); ov.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
+  const ovObj=rows.reduce((a,r)=>a+(+r.obiettivo||0),0);
+  const ovVen=rows.reduce((a,r)=>a+Math.round((+r.obiettivo||0)/(+r.ticket||1)),0);
+  ov.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>🗺️ Tutto l'H2 a colpo d'occhio</h3><span class="muted">Giugno → Dicembre · clicca un mese sopra per i dettagli</span></div>
+  <table class="tbl"><thead><tr><th>Mese</th><th>Obiettivo</th><th>Vendite</th><th>Budget ads*</th></tr></thead><tbody>
+    ${rows.map(r=>{const ven=Math.round((+r.obiettivo||0)/(+r.ticket||1));const scn={...SCDEF,...(r.rates?.[r.active_scen]||r.rates?.real||{})};['c2pc','pc2p','p2v','cpl'].forEach(k=>{if(!(+scn[k]>0))scn[k]=SCDEF[k];});const pr=Math.ceil(ven/(scn.p2v/100)),ch=Math.ceil(pr/(scn.pc2p/100)),co=Math.ceil(ch/(scn.c2pc/100)),bud=co*scn.cpl;const on=r.month===S.mkMonth;return `<tr style="${on?'background:var(--surface-2);font-weight:700':'cursor:pointer'}" class="mm-row" data-m="${r.month}"><td><b>${r.label.replace(' 2026','')}</b>${on?' ◀':''}</td><td class="mono">${eur(r.obiettivo)}</td><td class="mono">${ven}</td><td class="mono">${eur(bud)}</td></tr>`;}).join('')}
+    <tr style="font-weight:800;background:var(--surface-2)"><td>H2 TOTALE</td><td class="mono">${eur(ovObj)}</td><td class="mono">${ovVen}</td><td class="mono">—</td></tr>
+  </tbody></table>
+  <div class="muted" style="font-size:11px;padding:8px 16px 14px">*Budget stimato sullo scenario impostato per ogni mese.</div>`;
+  bd.appendChild(ov);
+
+  if(row.note){ const nb=el('div','banner info'); nb.style.marginBottom='16px'; nb.innerHTML=`🎯 <b>${w.label}:</b> ${row.note}`; bd.appendChild(nb); }
+
   // ===== BARRA EDIT (solo admin) =====
   if(isAdmin){
     const ed=el('div','card'); ed.style.cssText='margin-bottom:16px;border:2px solid '+(dirty?'var(--brand)':'var(--line)');
@@ -775,7 +789,7 @@ async function viewMarketingPlan(c){
 
   // ===== INTERAZIONI =====
   const rerender=()=>viewMarketingPlan(c);
-  bd.querySelectorAll('.mm-month').forEach(b=>b.addEventListener('click',()=>{S.mkMonth=b.dataset.m;S.mkWork=null;rerender();}));
+  bd.querySelectorAll('.mm-month,.mm-row').forEach(b=>b.addEventListener('click',()=>{S.mkMonth=b.dataset.m;S.mkWork=null;rerender();}));
   bd.querySelectorAll('.mm-scn').forEach(b=>b.addEventListener('click',()=>{S.mkWork.active_scen=b.dataset.k;rerender();}));
   bd.querySelectorAll('.mm-base').forEach(i=>i.addEventListener('change',()=>{
     let v=parseFloat(i.value); if(!isFinite(v)||v<0)v=0;
