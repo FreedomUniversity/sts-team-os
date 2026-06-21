@@ -649,7 +649,11 @@ async function viewMarketingPlan(c){
   const vendite=Math.max(0,Math.round(OBIETTIVO/TICKET));
   const incassoSubito=OBIETTIVO*INC;
   const eur=v=>'€'+nf.format(Math.round(v));
-  const sc=w.rates[w.active_scen]||w.rates.real;
+  const SCDEF={c2pc:31,pc2p:56,p2v:35,cpl:28}; // fallback robusto: mai NaN/undefined anche con dati sporchi
+  if(!w.rates||typeof w.rates!=='object') w.rates={best:{...SCDEF},real:{...SCDEF},worst:{...SCDEF}};
+  if(!['best','real','worst'].includes(w.active_scen)) w.active_scen='real';
+  const sc={...SCDEF, ...(w.rates[w.active_scen]||w.rates.real||{})};
+  ['c2pc','pc2p','p2v','cpl'].forEach(k=>{ if(!(+sc[k]>0)) sc[k]=SCDEF[k]; }); // nessun campo a 0/NaN → funnel sempre sensato
   const pres=Math.ceil(vendite/((sc.p2v||1)/100));
   const chiamate=Math.ceil(pres/((sc.pc2p||1)/100));
   const contatti=Math.ceil(chiamate/((sc.c2pc||1)/100));
@@ -658,7 +662,8 @@ async function viewMarketingPlan(c){
   const contattiDie=Math.ceil(contatti/GG);
 
   // distribuzione settimanale dai pesi (front-load), normalizzati sul nr. vendite
-  const weights=Array.isArray(w.week_split)&&w.week_split.length?w.week_split:[5,5,4,2];
+  let weights=(Array.isArray(w.week_split)&&w.week_split.length?w.week_split:[5,5,4,2]).map(x=>Math.max(0,+x||0));
+  if(!weights.some(x=>x>0)) weights=[5,5,4,2]; // mai tutti zero/negativi
   const sumW=weights.reduce((a,b)=>a+b,0)||1;
   const wkV=weights.map(wt=>Math.floor(vendite*wt/sumW));
   let rem=vendite-wkV.reduce((a,b)=>a+b,0); for(let i=0;rem>0;i=(i+1)%wkV.length){wkV[i]++;rem--;}
@@ -705,9 +710,15 @@ async function viewMarketingPlan(c){
   // ===== SELETTORE SCENARIO =====
   const PR={best:'Migliore',real:'Realistico',worst:'Peggiore'};
   const TAG={best:'come lo scenario ideale',real:'piano operativo',worst:'prudente'};
-  const ssel=el('div'); ssel.style.cssText='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px';
-  ssel.innerHTML=['best','real','worst'].map(k=>{const on=k===w.active_scen;return `<button class="mm-scn" data-k="${k}" style="flex:1;min-width:150px;cursor:pointer;text-align:left;padding:12px 14px;border-radius:12px;border:2px solid ${on?'var(--brand)':'var(--line)'};background:${on?'var(--brand)':'var(--surface)'};color:${on?'#fff':'var(--text)'}"><div style="font-weight:800;font-size:15px">${PR[k]}</div><div style="font-size:12px;opacity:.85">${TAG[k]}</div></button>`;}).join('');
-  bd.appendChild(ssel);
+  if(isAdmin){
+    const ssel=el('div'); ssel.style.cssText='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px';
+    ssel.innerHTML=['best','real','worst'].map(k=>{const on=k===w.active_scen;return `<button class="mm-scn" data-k="${k}" style="flex:1;min-width:150px;cursor:pointer;text-align:left;padding:12px 14px;border-radius:12px;border:2px solid ${on?'var(--brand)':'var(--line)'};background:${on?'var(--brand)':'var(--surface)'};color:${on?'#fff':'var(--text)'}"><div style="font-weight:800;font-size:15px">${PR[k]}</div><div style="font-size:12px;opacity:.85">${TAG[k]}</div></button>`;}).join('');
+    bd.appendChild(ssel);
+  } else {
+    const sbadge=el('div'); sbadge.style.cssText='margin-bottom:14px';
+    sbadge.innerHTML=`<span style="display:inline-block;padding:8px 15px;border-radius:999px;background:var(--brand);color:#fff;font-weight:700;font-size:13px">Scenario: ${PR[w.active_scen]}</span> <span class="muted" style="font-size:12.5px">definito dagli admin</span>`;
+    bd.appendChild(sbadge);
+  }
 
   // ===== FUNNEL =====
   const stages=[{n:'Contatti',v:contatti,d:'lasciano i dati',sub:''},{n:'Prime chiamate',v:chiamate,d:'chiamata di qualifica',sub:sc.c2pc+'%'},{n:'Presentazioni',v:pres,d:'la vendita vera',sub:sc.pc2p+'%'},{n:'Vendite',v:vendite,d:'firma e paga',sub:sc.p2v+'%'}];
@@ -728,7 +739,7 @@ async function viewMarketingPlan(c){
   const ins=[{f:'c2pc',l:'Contatti → Chiamate',u:'%'},{f:'pc2p',l:'Chiamate → Presentazioni',u:'%'},{f:'p2v',l:'Presentazioni → Vendite',u:'%'},{f:'cpl',l:'Costo per contatto',u:'€'}];
   lev.innerHTML=`<div class="card-h"><h3>🎚️ Le conversioni — scenario ${PR[w.active_scen]}</h3><span class="muted">${isAdmin?'modificabili · cambiano il funnel':'definite dagli admin'}</span></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:8px">
-    ${ins.map(i=>`<div><div class="lbl" style="margin-bottom:5px">${i.l}</div><div style="display:flex;align-items:center;gap:6px"><input class="mm-rate" data-f="${i.f}" type="number" value="${sc[i.f]}" min="1" step="1" ${isAdmin?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:${isAdmin?'var(--surface)':'var(--surface-2)'};font-weight:700;font-size:15px;font-family:inherit;${isAdmin?'':'opacity:.7'}"><span class="muted" style="font-weight:700">${i.u}</span></div></div>`).join('')}
+    ${ins.map(i=>`<div><div class="lbl" style="margin-bottom:5px">${i.l}</div><div style="display:flex;align-items:center;gap:6px"><input class="mm-rate" data-f="${i.f}" type="number" value="${sc[i.f]??''}" min="1" step="1" ${isAdmin?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:${isAdmin?'var(--surface)':'var(--surface-2)'};font-weight:700;font-size:15px;font-family:inherit;${isAdmin?'':'opacity:.7'}"><span class="muted" style="font-weight:700">${i.u}</span></div></div>`).join('')}
     </div>
     <p class="muted" style="margin-top:12px">Più sale "Presentazioni → Vendite", meno contatti (e meno budget) servono. È lì che si vince.</p>`;
   bd.appendChild(lev);
@@ -860,9 +871,13 @@ async function viewAdmin(c,sub){
       <div class="stat"><div class="lbl">📊 Team in target</div><div class="val mono">${total?Math.round(inTargetN/total*100):0}%</div><div class="meta">della squadra</div></div>`;
     body.appendChild(g2);
 
-    // 💼 metriche business team (somma su tutti i reparti, dalle metriche reali)
+    // 💼 metriche business team — ogni KPI sommato SOLO dal reparto che lo possiede (no doppi conteggi)
+    const roleOf={}; collaborators.forEach(p=>roleOf[p.id]=p.sales_role);
     let cash=0,fiss=0,pres=0,vinti=0;
-    inP.forEach(e=>{const k=e.kpis||{};cash+=+(k.cash_collected||0);fiss+=+(k.appuntamenti_fissati||0);pres+=+(k.appuntamenti_processati||0);vinti+=+(k.vinti||0);});
+    inP.forEach(e=>{const k=e.kpis||{},rr=roleOf[e.user_id];
+      if(rr==='setter') fiss+=+(k.appuntamenti_fissati||0);
+      if(rr==='closer'){ cash+=+(k.cash_collected||0); pres+=+(k.appuntamenti_processati||0); vinti+=+(k.vinti||0); }
+    });
     const showUp=fiss?Math.round(pres/fiss*100):null, conv=pres?Math.round(vinti/pres*100):null;
     const g3=el('div','grid grid-4'); g3.style.marginTop='14px';
     g3.innerHTML=`
@@ -875,11 +890,12 @@ async function viewAdmin(c,sub){
     // 📈 OBIETTIVO DEL MESE — ponte col Piano Marketing (solo Cabina azienda)
     if(!isMgr && planMonth){
       const tk=+planMonth.ticket||4900, obj=+planMonth.obiettivo||0, vTarget=tk?Math.round(obj/tk):0;
+      const GGM=Math.max(1,+planMonth.gg_lav||WORKDAYS_MONTH); // giorni lavorativi dal Piano (base coerente col piano stesso)
       const mFrom=isoDay(monthStart()), mTo=isoDay(today());
-      let mVinti=0; entries.filter(e=>e.day>=mFrom&&e.day<=mTo&&collabIds.has(e.user_id)).forEach(e=>{mVinti+=+(e.kpis?.vinti||0);});
+      let mVinti=0; entries.filter(e=>e.day>=mFrom&&e.day<=mTo&&collabIds.has(e.user_id)).forEach(e=>{ if(roleOf[e.user_id]==='closer') mVinti+=+(e.kpis?.vinti||0); });
       const fatt=mVinti*tk, gpct=obj?fatt/obj:0;
-      const wdEl=Math.max(1,workdaysElapsedMonth()), proj=mVinti/wdEl*WORKDAYS_MONTH, projFatt=proj*tk;
-      const idealPct=wdEl/WORKDAYS_MONTH, gst=gpct>=idealPct?'good':gpct>=idealPct*0.7?'warn':'bad';
+      const wdEl=Math.max(1,Math.min(GGM,workdaysElapsedMonth())), proj=mVinti/wdEl*GGM, projFatt=proj*tk;
+      const idealPct=wdEl/GGM, gst=gpct>=idealPct?'good':gpct>=idealPct*0.7?'warn':'bad';
       const gc=el('div','card'); gc.style.marginTop='16px';
       gc.innerHTML=`<div class="card-h"><h3>📈 Obiettivo del mese · Piano Marketing</h3><span class="muted">${planMonth.label} · mese corrente</span></div>
         <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px">
@@ -891,13 +907,12 @@ async function viewAdmin(c,sub){
           <div><div class="muted" style="font-size:11px">Raggiunto</div><b style="font-size:16px">${Math.round(gpct*100)}%</b></div>
           <div><div class="muted" style="font-size:11px">A ritmo costante chiudi a</div><b style="font-size:16px;color:${projFatt>=obj?'var(--good)':'var(--warn)'}">€${nf.format(Math.round(projFatt))}</b> <span class="muted">(${Math.round(proj)} vendite)</span></div>
           <div><div class="muted" style="font-size:11px">Mancano</div><b style="font-size:16px">€${nf.format(Math.max(0,Math.round(obj-fatt)))}</b></div>
-          <div><div class="muted" style="font-size:11px">Giorni mese</div><b style="font-size:16px">${wdEl}/${WORKDAYS_MONTH}</b></div>
+          <div><div class="muted" style="font-size:11px">Giorni mese</div><b style="font-size:16px">${wdEl}/${GGM}</b></div>
         </div>
-        <div class="muted" style="font-size:11.5px;margin-top:11px">Vendite reali dal KPI "vinti" compilato dal team × prezzo medio €${nf.format(tk)}. L'obiettivo si imposta in <b>📈 Piano Marketing</b>.</div>`;
+        <div class="muted" style="font-size:11.5px;margin-top:11px">Vendite reali dal KPI "vinti" (solo closer) × prezzo medio €${nf.format(tk)}. La proiezione è <b>a ritmo costante</b>: il piano è front-loaded (prime 2 settimane più cariche), quindi può sovrastimare se il carico parte forte. L'obiettivo si imposta in <b>📈 Piano Marketing</b>.</div>`;
       body.appendChild(gc);
 
-      // 🔻 FUNNEL REALE DEL MESE — dove si rompe la catena (ogni KPI dal reparto che lo possiede)
-      const roleOf={}; collaborators.forEach(p=>roleOf[p.id]=p.sales_role);
+      // 🔻 FUNNEL REALE DEL MESE — dove si rompe la catena (ogni KPI dal reparto che lo possiede; roleOf già definito sopra)
       const monthEs=entries.filter(e=>e.day>=mFrom&&e.day<=mTo&&collabIds.has(e.user_id));
       const sumKey=(key,roles)=>monthEs.reduce((a,e)=>a+(roles.includes(roleOf[e.user_id])?+(e.kpis?.[key]||0):0),0);
       const fst=[
@@ -923,8 +938,10 @@ async function viewAdmin(c,sub){
           ${i<fst.length-1?`<div style="position:absolute;right:-13px;top:50%;transform:translateY(-50%);z-index:2;text-align:center">${convs[i]!=null?`<div style="font-size:11px;font-weight:800;color:${i===blIdx?'var(--bad)':'var(--muted)'}">${Math.round(convs[i]*100)}%</div>`:''}<div style="font-size:18px;color:var(--muted)">→</div></div>`:''}
         </div>`).join('')}
         </div>
-        ${blIdx>=0?`<div class="banner ${'warn'}" style="margin-top:14px">🔻 <b>Collo di bottiglia: ${fst[blIdx].n} → ${fst[blIdx+1].n}</b> (${Math.round(convs[blIdx]*100)}%). È lì che stai perdendo più clienti questo mese — concentra lì gli sforzi.</div>`:''}
-        ${closeReal!=null&&closeTgt?`<div class="muted" style="font-size:12.5px;margin-top:10px">Close rate reale <b style="color:${closeReal*100>=closeTgt?'var(--good)':'var(--bad)'}">${Math.round(closeReal*100)}%</b> · obiettivo piano <b>${closeTgt}%</b> (Presentati → Vinti).</div>`:''}`);
+        ${fst[0].v===0&&fst[1].v>0?`<div class="banner warn" style="margin-top:14px">⚠️ <b>Marketing non ha loggato lead questo mese</b> — il funnel parte dagli appuntamenti. "0 Lead" è dato mancante, non zero reale: fai compilare il reparto marketing.</div>`:''}
+        ${blIdx>=0?`<div class="banner warn" style="margin-top:14px">🔻 <b>Collo di bottiglia: ${fst[blIdx].n} → ${fst[blIdx+1].n}</b> (${Math.round(convs[blIdx]*100)}%). È lì che stai perdendo più clienti questo mese — concentra lì gli sforzi.</div>`:''}
+        ${closeReal!=null&&closeTgt?`<div class="muted" style="font-size:12.5px;margin-top:10px">Close rate reale <b style="color:${closeReal*100>=closeTgt?'var(--good)':'var(--bad)'}">${Math.round(closeReal*100)}%</b> · obiettivo piano <b>${closeTgt}%</b> (Presentati → Vinti, stesso reparto = confronto pulito).</div>`:''}
+        <div class="muted" style="font-size:11px;margin-top:8px">Nota: le % tra reparti diversi (Lead→Fissati, Fissati→Presentati) sono rapporti di volume, non conversioni dello stesso lead. L'unica conversione pura è Presentati→Vinti.</div>`);
       }
       body.appendChild(fc);
     }
