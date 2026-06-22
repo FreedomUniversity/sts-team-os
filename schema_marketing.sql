@@ -43,7 +43,7 @@ alter table public.marketing_months add  constraint mm_scen_chk
 
 alter table public.marketing_months drop constraint if exists mm_range_chk;
 alter table public.marketing_months add  constraint mm_range_chk
-  check (obiettivo >= 0 and ticket >= 0 and incasso_pct >= 0 and incasso_pct <= 1 and gg_lav between 0 and 31);
+  check (obiettivo >= 0 and ticket >= 0 and ricorrente >= 0 and incasso_pct >= 0 and incasso_pct <= 1 and gg_lav between 0 and 31);
 
 alter table public.marketing_months drop constraint if exists mm_rates_chk;
 alter table public.marketing_months add  constraint mm_rates_chk
