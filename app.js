@@ -505,6 +505,11 @@ async function viewToday(c){
   const wdM=workdaysElapsedMonth(), wdW=workdaysElapsedWeek();
 
   const body=$('#todayBody',c); body.innerHTML='';
+  // primo accesso / inizio mese senza dati: accoglienza invece di sgridata
+  const freshStart = !entry && (monthEntries.length===0);
+  if(freshStart){ const wc=el('div','banner info'); wc.style.marginBottom='16px';
+    wc.innerHTML='👋 <b>Inizia da qui.</b> Metti i tuoi numeri di oggi qui sotto — bastano 60 secondi. È così che la squadra sa dove siamo e dove stiamo andando.';
+    body.appendChild(wc); }
   // progress cards (north + period)
   const north=role.kpis.find(k=>k.key===role.north)||role.kpis[0];
   const cards=el('div','grid grid-3');
@@ -541,7 +546,7 @@ async function viewToday(c){
   paceBanner.innerHTML = pace==='good'
     ? `🔥 Sei <b>avanti o in pari</b> col ritmo del mese. Stai costruendo il risultato — continua così.`
     : `⚠️ Sei <b>sotto il ritmo ideale</b> del mese. Per rientrare servono ~<b>${fmtv(Math.max(0,(north.daily*wdM)-(monthSum[north.key]||0)),north.unit)}</b> di ${north.label.toLowerCase()} in più, da recuperare nei prossimi giorni.`;
-  body.appendChild(paceBanner);
+  if(!freshStart) body.appendChild(paceBanner); // al primo giorno non rimproverare chi non ha ancora dati
 
   // 💰 SALDO GIOCO (bonus/malus mese)
   const ebd={}; monthEntries.forEach(e=>ebd[e.day]=e.kpis||{});
@@ -554,7 +559,7 @@ async function viewToday(c){
       <div class="muted" style="font-size:13px">🟢 ${gs.plus} giorni a target · ⚪ ${gs.zero} sotto · 🔴 ${gs.minus} non compilati</div>
     </div>
     <div class="muted" style="font-size:12.5px;margin-top:10px">Regole: <b>+€2</b> se compili e raggiungi l'obiettivo · <b>+€0,50</b> se compili sotto · <b>−€1</b> se non compili. Compilare conviene sempre.</div>`;
-  body.appendChild(gcard);
+  if(!freshStart) body.appendChild(gcard); // niente malus al primo accesso (giorni pre-accesso non contano)
 
   // form compilazione
   const formCard=el('div','card'); formCard.style.marginTop='16px';
