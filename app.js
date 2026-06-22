@@ -394,7 +394,7 @@ async function viewTeamAssign(c){
       <select id="naRole" style="padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:600"></select>
       <button class="btn btn-primary" id="naCreate">Crea login</button>
     </div>
-    <p class="muted" style="font-size:12px;margin-top:8px">Crea l'account con password <b>CollabStore123!</b>. Il collaboratore entra subito con la sua email.</p>
+    <p class="muted" style="font-size:12px;margin-top:8px">Crea l'account con password <b>Salesteam2026!</b>. Il collaboratore entra subito con la sua email.</p>
     <div id="naMsg" class="muted" style="font-size:13px;margin-top:6px"></div></div>
   <input id="raSearch" placeholder="🔎 Cerca per nome…" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:11px;margin-bottom:14px;font-size:14px">
   <div id="raAlert"></div>
@@ -451,7 +451,7 @@ async function viewTeamAssign(c){
     const sel=`<select data-id="${p.id}" class="ra-sel" ${p.role==='admin'?'disabled':''} style="padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-weight:600">${opts.map(o=>`<option value="${o}" ${(p.sales_role||'')===o?'selected':''}>${o===''?'— nessuno —':ROLES[o].icon+' '+ROLES[o].label}</option>`).join('')}</select>`;
     const rmBtn = p.role==='admin' ? '' : `<button class="ra-rm" data-id="${p.id}" style="color:var(--bad);font-weight:700;font-size:13px">🗑 Rimuovi</button>`;
     return `<tr style="${dirty||inactive?'opacity:.55':''}">
-      <td><b>${nm}</b> ${tag}</td><td>${sel}</td>
+      <td><b>${esc(nm)}</b> ${tag}</td><td>${sel}</td>
       <td><input type="checkbox" class="ra-track" data-id="${p.id}" ${p.trackable!==false?'checked':''}></td>
       <td>${rmBtn}</td></tr>`;
   }
@@ -651,7 +651,8 @@ async function viewMarketingPlan(c){
   const row=rows.find(r=>r.month===S.mkMonth);
   if(!S.mkWork || S.mkWork.month!==row.month) S.mkWork=JSON.parse(JSON.stringify(row));
   const w=S.mkWork, isAdmin=S.isAdmin;
-  const dirty=JSON.stringify({o:w.obiettivo,rc:w.ricorrente,t:w.ticket,i:w.incasso_pct,g:w.gg_lav,r:w.rates,a:w.active_scen})!==JSON.stringify({o:row.obiettivo,rc:row.ricorrente,t:row.ticket,i:row.incasso_pct,g:row.gg_lav,r:row.rates,a:row.active_scen});
+  const sig=o=>JSON.stringify({o:+o.obiettivo||0,rc:+o.ricorrente||0,t:+o.ticket||0,i:+o.incasso_pct||0,g:+o.gg_lav||0,r:o.rates,a:o.active_scen}); // numeri normalizzati: niente falsi "dirty" da string/number
+  const dirty=sig(w)!==sig(row);
 
   const TICKET=+w.ticket||1, OBIETTIVO=+w.obiettivo||0, GG=+w.gg_lav||22, INC=+w.incasso_pct||0;
   const RIC=Math.min(Math.max(0,+w.ricorrente||0),OBIETTIVO); // ricorrente/mese (SOS): non richiede nuove vendite
@@ -825,6 +826,7 @@ async function viewMarketingPlan(c){
   bd.querySelectorAll('.mm-scn').forEach(b=>b.addEventListener('click',()=>{S.mkWork.active_scen=b.dataset.k;rerender();}));
   bd.querySelectorAll('.mm-base').forEach(i=>i.addEventListener('change',()=>{
     let v=parseFloat(i.value); if(!isFinite(v)||v<0)v=0;
+    if(i.dataset.k==='ticket'&&v<1)v=1; // mai ticket 0 (eviterebbe numeri assurdi nel funnel)
     if(i.dataset.k==='incasso_pct') S.mkWork.incasso_pct=Math.min(1,v/100); else S.mkWork[i.dataset.k]=v;
     rerender();
   }));
@@ -911,9 +913,9 @@ async function viewAdmin(c,sub){
     body.appendChild(g1);
     const g2=el('div','grid grid-4'); g2.style.marginTop='14px';
     g2.innerHTML=`
-      <div class="stat"><div class="lbl">🏆 Miglior performer</div><div class="val mono" style="font-size:18px">${best?best.name:'—'}</div><div class="meta">${best?Math.round(best.pct*100)+'% del target':'nessun dato'}</div></div>
+      <div class="stat"><div class="lbl">🏆 Miglior performer</div><div class="val mono" style="font-size:18px">${best?esc(best.name):'—'}</div><div class="meta">${best?Math.round(best.pct*100)+'% del target':'nessun dato'}</div></div>
       <div class="stat"><div class="lbl">🥇 Reparto migliore</div><div class="val mono" style="font-size:18px">${bestRole?ROLES[bestRole].label:'—'}</div><div class="meta">${bestRole?roleStat[bestRole].inT+'/'+roleStat[bestRole].count+' in target':'—'}</div></div>
-      <div class="stat"><div class="lbl">🔥 Streak più lunga</div><div class="val mono">${maxStreak} gg</div><div class="meta">${maxStreakName}</div></div>
+      <div class="stat"><div class="lbl">🔥 Streak più lunga</div><div class="val mono">${maxStreak} gg</div><div class="meta">${esc(maxStreakName)}</div></div>
       <div class="stat"><div class="lbl">📊 Team in target</div><div class="val mono">${total?Math.round(inTargetN/total*100):0}%</div><div class="meta">della squadra</div></div>`;
     body.appendChild(g2);
 
@@ -1017,7 +1019,7 @@ async function viewAdmin(c,sub){
         const w=Math.max(3,Math.min(100,x.pct/mx*100)),col=x.pct>=1?'var(--good)':x.pct>=0.6?'var(--warn)':'var(--bad)';
         return `<div style="display:flex;align-items:center;gap:11px;margin-bottom:9px">
           <div style="width:24px;text-align:center;font-weight:800">${medals[i]||(i+1)}</div>
-          <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><b>${x.name}</b><span class="muted">${Math.round(x.pct*100)}%</span></div><div style="background:var(--line);border-radius:6px;height:10px;overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${col}"></span></div></div>
+          <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><b>${esc(x.name)}</b><span class="muted">${Math.round(x.pct*100)}%</span></div><div style="background:var(--line);border-radius:6px;height:10px;overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${col}"></span></div></div>
           <div style="flex-shrink:0">${deptBadge(x.p.sales_role)}</div></div>`;
       }).join(''));
     } else lbCard.insertAdjacentHTML('beforeend','<div class="empty">Nessuna compilazione nel periodo.</div>');
@@ -1035,7 +1037,7 @@ async function viewAdmin(c,sub){
             <div><div class="muted" style="font-size:11px">In target</div><b style="color:var(--good)">${rs.inT}</b></div>
             <div><div class="muted" style="font-size:11px">Da sollecitare</div><b style="color:${rs.count-rs.inT?'var(--bad)':'var(--ink)'}">${rs.count-rs.inT}</b></div></div>
           <div class="bar ${pct>=60?'good':pct>=30?'warn':'bad'}" style="margin-top:12px"><span style="width:${pct}%"></span></div>
-          <div class="muted" style="font-size:11.5px;margin-top:7px">${pct}% in target${rs.best?' · 🏆 '+rs.best:''}</div>`;
+          <div class="muted" style="font-size:11.5px;margin-top:7px">${pct}% in target${rs.best?' · 🏆 '+esc(rs.best):''}</div>`;
         grid.appendChild(card);
       });
       repCard.appendChild(grid);
@@ -1056,7 +1058,7 @@ async function viewAdmin(c,sub){
       prCard.insertAdjacentHTML('beforeend',premi.slice(0,10).map(x=>{
         const pct=Math.min(100,Math.round(x.daysInT/BONUS_DAYS*100));
         return `<div style="display:flex;align-items:center;gap:11px;margin-bottom:9px">
-          <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><b>${x.name}</b><span>${x.matured?'<b style="color:var(--good)">🎉 premio maturato</b>':'🔥 '+x.streak+'gg streak'}</span></div><div style="background:var(--line);border-radius:6px;height:10px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${x.matured?'var(--good)':'var(--warn)'}"></span></div><div class="muted" style="font-size:11px;margin-top:3px">${x.daysInT}/${BONUS_DAYS} giorni in target questo mese</div></div>
+          <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><b>${esc(x.name)}</b><span>${x.matured?'<b style="color:var(--good)">🎉 premio maturato</b>':'🔥 '+x.streak+'gg streak'}</span></div><div style="background:var(--line);border-radius:6px;height:10px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${x.matured?'var(--good)':'var(--warn)'}"></span></div><div class="muted" style="font-size:11px;margin-top:3px">${x.daysInT}/${BONUS_DAYS} giorni in target questo mese</div></div>
           <div style="flex-shrink:0">${deptBadge(x.role)}</div></div>`;
       }).join(''));
     } else prCard.insertAdjacentHTML('beforeend','<div class="empty">Ancora nessuna streak — parte appena il team compila.</div>');
@@ -1066,7 +1068,7 @@ async function viewAdmin(c,sub){
     const congrList=people.filter(x=>x.inTarget).sort((a,b)=>b.pct-a.pct);
     const personRow=(x,btnLabel,onClick)=>{
       const row=el('div'); row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border:1px solid var(--line);border-radius:10px';
-      row.innerHTML=`<div style="min-width:0"><b style="font-size:13.5px">${x.name}</b> ${deptBadge(x.p.sales_role)}</div>`;
+      row.innerHTML=`<div style="min-width:0"><b style="font-size:13.5px">${esc(x.name)}</b> ${deptBadge(x.p.sales_role)}</div>`;
       const r2=el('div'); r2.style.cssText='display:flex;align-items:center;gap:10px;flex-shrink:0';
       r2.innerHTML=`<span class="muted" style="font-size:11.5px">${x.compiled?Math.round(x.pct*100)+'%':'non compila'}</span>`;
       const btn=el('button','btn btn-ghost',btnLabel); btn.style.cssText='padding:6px 11px;font-size:12px'; btn.addEventListener('click',onClick);
@@ -1235,7 +1237,7 @@ async function viewAnalytics(c,scope){
     const rc=el('div','card');rc.style.marginTop='16px';
     rc.innerHTML=`<div class="card-h"><h3>🏅 Chi lavora di più</h3><span class="muted">💰 monte premi €${montePremi.toFixed(2).replace('.',',')}</span></div>`;
     if(rank.length){const maxDays=rank[0].days;
-      rc.insertAdjacentHTML('beforeend',rank.map(r=>{const col=r.perf>=1?'var(--good)':r.perf>=0.6?'var(--warn)':'var(--bad)';const ec=r.euro<0?'var(--bad)':'var(--good)';return hbar(`${ROLES[r.p.sales_role]?.icon||''} ${r.p.display_name||'—'}`,`${r.days} gg · ${Math.round(r.perf*100)}% · <b style="color:${ec}">${r.euro>=0?'+':'−'}€${Math.abs(r.euro).toFixed(2).replace('.',',')}</b>`,maxDays?r.days/maxDays*100:0,col);}).join(''));
+      rc.insertAdjacentHTML('beforeend',rank.map(r=>{const col=r.perf>=1?'var(--good)':r.perf>=0.6?'var(--warn)':'var(--bad)';const ec=r.euro<0?'var(--bad)':'var(--good)';return hbar(`${ROLES[r.p.sales_role]?.icon||''} ${esc(r.p.display_name||'—')}`,`${r.days} gg · ${Math.round(r.perf*100)}% · <b style="color:${ec}">${r.euro>=0?'+':'−'}€${Math.abs(r.euro).toFixed(2).replace('.',',')}</b>`,maxDays?r.days/maxDays*100:0,col);}).join(''));
     } else rc.insertAdjacentHTML('beforeend','<div class="empty">Nessuna compilazione nel periodo.</div>');
     body.appendChild(rc);
 
