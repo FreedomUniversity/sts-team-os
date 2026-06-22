@@ -1,5 +1,5 @@
 // STS Performance OS — Service Worker (cache-first shell, network per i dati Supabase)
-const CACHE = 'sts-v14';
+const CACHE = 'sts-v15';
 const SHELL = ['./','./index.html','./styles.css','./app.js','./vendor/supabase.umd.js','./manifest.webmanifest','./logo-96.png','./logo-192.png','./logo-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).catch(()=>{}))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))); self.clients.claim(); });

@@ -748,6 +748,21 @@ async function viewMarketingPlan(c){
   cc.innerHTML=[['💸 Budget ads',eur(spesa),'in tutto il mese'],['🎯 Costo per cliente',eur(cac),'budget ÷ vendite'],['🧲 Contatti al giorno',contattiDie,'da generare · '+GG+' gg'],['💶 Incassato subito',eur(incassoSubito),Math.round(INC*100)+'% alla firma']].map(k=>`<div class="stat"><div class="lbl">${k[0]}</div><div class="val mono">${k[1]}</div><div class="meta">${k[2]}</div></div>`).join('');
   bd.appendChild(cc);
 
+  // ===== COSA DEVE FARE OGNI REPARTO (obiettivo a portata di ogni area) =====
+  const repBd=[
+    {icon:'🎯',rep:'Marketing',fase:'Lead / Contatti',mese:contatti},
+    {icon:'📞',rep:'Setter',fase:'Prime chiamate',mese:chiamate},
+    {icon:'🎬',rep:'Closer',fase:'Presentazioni',mese:pres},
+    {icon:'🤝',rep:'Closer',fase:'Vendite',mese:vendite},
+  ];
+  const rc=el('div','card'); rc.style.cssText='padding:0;overflow:auto;margin-bottom:16px';
+  rc.innerHTML=`<div class="card-h" style="padding:14px 16px 0"><h3>👥 Cosa deve fare ogni reparto</h3><span class="muted">${w.label} · il numero di ciascuno per centrare l'obiettivo</span></div>
+  <table class="tbl"><thead><tr><th>Reparto</th><th>Fase del funnel</th><th>Nel mese</th><th>Al giorno*</th></tr></thead><tbody>
+    ${repBd.map(r=>`<tr><td><b>${r.icon} ${r.rep}</b></td><td>${r.fase}</td><td class="mono">${r.mese}</td><td class="mono">${Math.ceil(r.mese/GG)}</td></tr>`).join('')}
+  </tbody></table>
+  <div class="muted" style="font-size:11px;padding:8px 16px 14px">*Su ${GG} giorni lavorativi. Numeri di reparto: dividili per le persone del reparto per il target individuale.</div>`;
+  bd.appendChild(rc);
+
   // ===== LEVE (conversioni) =====
   const lev=el('div','card'); lev.style.marginBottom='16px';
   const ins=[{f:'c2pc',l:'Contatti → Chiamate',u:'%'},{f:'pc2p',l:'Chiamate → Presentazioni',u:'%'},{f:'p2v',l:'Presentazioni → Vendite',u:'%'},{f:'cpl',l:'Costo per contatto',u:'€'}];
