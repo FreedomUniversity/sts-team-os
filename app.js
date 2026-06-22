@@ -409,13 +409,13 @@ async function viewTeamAssign(c){
     const name=$('#naName',c).value.trim(), email=$('#naEmail',c).value.trim(), role=$('#naRole',c).value||null;
     const msg=$('#naMsg',c); if(!name||!email){msg.style.color='var(--bad)';msg.textContent='Servono nome ed email.';return;}
     const btn=$('#naCreate',c); btn.disabled=true; btn.textContent='Creo…'; msg.style.color='var(--ink-3)'; msg.textContent='';
-    const {data:r,error}=await sb.functions.invoke('team-admin',{body:{action:'create',name,email,sales_role:role}});
+    const {data:r,error}=await sb.functions.invoke('team-admin',{body:{action:'create',name,email,sales_role:role,password:'Salesteam2026!'}});
     btn.disabled=false; btn.textContent='Crea login';
     if(error||r?.error){msg.style.color='var(--bad)';msg.textContent='Errore: '+(r?.error||error.message);return;}
     profs.push({id:r.id,display_name:name,role:'collaborator',sales_role:role,active:true,trackable:true});
     _anCache=null;
     $('#naName',c).value='';$('#naEmail',c).value='';$('#naRole',c).value='';
-    msg.style.color='var(--brand)';msg.textContent='✓ '+name+' creato. Login: '+email+' / CollabStore123!';
+    msg.style.color='var(--brand)';msg.textContent='✓ '+name+' creato. Login: '+email+' / Salesteam2026!';
     toast(name+' aggiunto'); render();
   });
   // pulizia disattivati (hard delete in blocco)
@@ -718,7 +718,8 @@ async function viewMarketingPlan(c){
       {k:'incasso_pct',l:'Incasso subito',u:'%',v:Math.round(INC*100),step:5},
       {k:'gg_lav',l:'Giorni lavorativi',u:'gg',v:w.gg_lav,step:1},
     ];
-    ed.innerHTML=`<div class="card-h"><h3>🎛️ Imposta ${w.label}</h3><span class="muted">solo admin · cambia un numero e tutto si ricalcola</span></div>
+    ed.innerHTML=`<div class="card-h"><h3>👑 Crea il piano di ${w.label}</h3><span class="muted">solo founder/admin</span></div>
+      <p class="muted" style="margin:2px 0 12px;font-size:12.5px">Scegli il mese coi pulsanti sopra · imposta <b>obiettivo, prezzo, incasso, giorni</b> · regola le conversioni più sotto · premi <b>Salva</b> → vale per tutto il team. Tutto il resto si ricalcola da solo.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:8px">
       ${f.map(x=>`<div><div class="lbl" style="margin-bottom:5px">${x.l}</div><div style="display:flex;align-items:center;gap:6px"><input class="mm-base" data-k="${x.k}" type="number" step="${x.step}" min="0" value="${x.v}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-weight:700;font-size:15px;font-family:inherit"><span class="muted" style="font-weight:700">${x.u}</span></div></div>`).join('')}
       </div>

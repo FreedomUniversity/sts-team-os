@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       if (!email || !name) return json(400, { error: 'Nome ed email sono obbligatori' })
       const { data: nu, error: cErr } = await admin.auth.admin.createUser({
         email,
-        password: String(body.password || 'CollabStore123!'),
+        password: String(body.password || 'Salesteam2026!'),
         email_confirm: true,
         user_metadata: { display_name: name },
       })
