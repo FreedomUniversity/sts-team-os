@@ -289,6 +289,7 @@ function shell(navItems,content){
       <nav class="sb-nav">${navItems.map(n=>`<a class="sb-link ${n.id===S.view?'on':''}" data-v="${n.id}"><span class="i">${n.icon}</span>${n.label}</a>`).join('')}</nav>
       <div class="sb-foot">
         <div class="sb-user"><div class="av">${initials(name)}</div><div><div class="nm">${esc(name)}</div><div class="rl">${roleLabel}</div></div></div>
+        <button class="sb-logout" id="chgpw" style="margin-bottom:6px">🔑 Cambia password</button>
         <button class="sb-logout" id="logout">↩ Esci</button>
       </div>
     </aside>
@@ -298,6 +299,14 @@ function shell(navItems,content){
   $('#main').appendChild(content);
   wrap.querySelectorAll('.sb-link').forEach(a=>a.addEventListener('click',()=>{S.view=a.dataset.v;S.sidebarOpen=false;renderApp();}));
   $('#logout').addEventListener('click',async()=>{await sb.auth.signOut();});
+  const cp=$('#chgpw'); if(cp) cp.addEventListener('click',async()=>{
+    if(DEMO){toast('Non disponibile in modalità demo');return;}
+    const np=prompt('Scegli la TUA password (almeno 8 caratteri):');
+    if(np==null) return;
+    if((np||'').length<8){toast('Troppo corta — almeno 8 caratteri');return;}
+    const {error}=await sb.auth.updateUser({password:np});
+    toast(error?('Errore: '+error.message):'✅ Password aggiornata');
+  });
   const burger=$('#burger'),scrim=$('#scrim');
   if(burger)burger.addEventListener('click',()=>{S.sidebarOpen=!S.sidebarOpen;$('#sidebar').classList.toggle('open');scrim.classList.toggle('on');});
   if(scrim)scrim.addEventListener('click',()=>{S.sidebarOpen=false;$('#sidebar').classList.remove('open');scrim.classList.remove('on');});
