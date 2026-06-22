@@ -651,11 +651,13 @@ async function viewMarketingPlan(c){
   const row=rows.find(r=>r.month===S.mkMonth);
   if(!S.mkWork || S.mkWork.month!==row.month) S.mkWork=JSON.parse(JSON.stringify(row));
   const w=S.mkWork, isAdmin=S.isAdmin;
-  const dirty=JSON.stringify({o:w.obiettivo,t:w.ticket,i:w.incasso_pct,g:w.gg_lav,r:w.rates,a:w.active_scen})!==JSON.stringify({o:row.obiettivo,t:row.ticket,i:row.incasso_pct,g:row.gg_lav,r:row.rates,a:row.active_scen});
+  const dirty=JSON.stringify({o:w.obiettivo,rc:w.ricorrente,t:w.ticket,i:w.incasso_pct,g:w.gg_lav,r:w.rates,a:w.active_scen})!==JSON.stringify({o:row.obiettivo,rc:row.ricorrente,t:row.ticket,i:row.incasso_pct,g:row.gg_lav,r:row.rates,a:row.active_scen});
 
   const TICKET=+w.ticket||1, OBIETTIVO=+w.obiettivo||0, GG=+w.gg_lav||22, INC=+w.incasso_pct||0;
-  const vendite=Math.max(0,Math.round(OBIETTIVO/TICKET));
-  const incassoSubito=OBIETTIVO*INC;
+  const RIC=Math.min(Math.max(0,+w.ricorrente||0),OBIETTIVO); // ricorrente/mese (SOS): non richiede nuove vendite
+  const NUOVO=Math.max(0,OBIETTIVO-RIC);                       // il funnel lavora sul NUOVO business
+  const vendite=Math.max(0,Math.round(NUOVO/TICKET));
+  const incassoSubito=NUOVO*INC+RIC;                           // upfront sui nuovi deal + ricorrente
   const eur=v=>'€'+nf.format(Math.round(v));
   const SCDEF={c2pc:31,pc2p:56,p2v:35,cpl:28}; // fallback robusto: mai NaN/undefined anche con dati sporchi
   if(!w.rates||typeof w.rates!=='object') w.rates={best:{...SCDEF},real:{...SCDEF},worst:{...SCDEF}};
@@ -687,8 +689,13 @@ async function viewMarketingPlan(c){
   ];
   const idTot={spesa:5107, cont:163, ch:52, pres:39, v:17};
 
-  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Marketing — ${w.label}</h1><p class="sub">Obiettivo <b>${eur(OBIETTIVO)}</b> → <b>${vendite} vendite</b> da ${eur(TICKET)}. Incassi subito ${Math.round(INC*100)}% (${eur(incassoSubito)}). Il funnel si ricava a ritroso.${isAdmin?' <b style="color:var(--brand)">Sei admin: puoi modificare e personalizzare ogni mese.</b>':' <span class="muted">Piano definito dagli admin.</span>'}</p></div></div><div id="mkpBody"></div>`;
+  c.innerHTML=`<div class="page-head"><div><h1>📈 Piano Marketing — ${w.label}</h1><p class="sub">Obiettivo <b>${eur(OBIETTIVO)}</b>${RIC>0?` (di cui ${eur(RIC)} ricorrente → <b>${eur(NUOVO)}</b> nuovo)`:''} → <b>${vendite} vendite</b> nuove da ${eur(TICKET)}. Il funnel si ricava a ritroso.${isAdmin?' <b style="color:var(--brand)">Sei admin: puoi modificare e personalizzare ogni mese.</b>':' <span class="muted">Piano definito dagli admin.</span>'}</p></div></div><div id="mkpBody"></div>`;
   const bd=$('#mkpBody',c); bd.innerHTML='';
+
+  // status: piano ancora in validazione (rampa CANON provvisoria, da confermare con Lorenzo sui numeri reali GHL)
+  const draft=el('div','banner warn'); draft.style.marginBottom='14px';
+  draft.innerHTML='📋 <b>Bozza — numeri da validare con Lorenzo.</b> Rampa di partenza realistica (verso 100K/m a Q4); target, ticket, ricorrente e mappatura con la pipeline GHL vanno confermati prima del go-live.';
+  bd.appendChild(draft);
 
   // ===== SELETTORE MESE =====
   const msel=el('div'); msel.style.cssText='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px';
@@ -714,12 +721,13 @@ async function viewMarketingPlan(c){
     const ed=el('div','card'); ed.style.cssText='margin-bottom:16px;border:2px solid '+(dirty?'var(--brand)':'var(--line)');
     const f=[
       {k:'obiettivo',l:'Obiettivo fatturato',u:'€',v:w.obiettivo,step:1000},
+      {k:'ricorrente',l:'di cui ricorrente (SOS)',u:'€',v:w.ricorrente||0,step:500},
       {k:'ticket',l:'Prezzo medio',u:'€',v:w.ticket,step:100},
       {k:'incasso_pct',l:'Incasso subito',u:'%',v:Math.round(INC*100),step:5},
       {k:'gg_lav',l:'Giorni lavorativi',u:'gg',v:w.gg_lav,step:1},
     ];
     ed.innerHTML=`<div class="card-h"><h3>👑 Crea il piano di ${w.label}</h3><span class="muted">solo founder/admin</span></div>
-      <p class="muted" style="margin:2px 0 12px;font-size:12.5px">Scegli il mese coi pulsanti sopra · imposta <b>obiettivo, prezzo, incasso, giorni</b> · regola le conversioni più sotto · premi <b>Salva</b> → vale per tutto il team. Tutto il resto si ricalcola da solo.</p>
+      <p class="muted" style="margin:2px 0 12px;font-size:12.5px">Scegli il mese coi pulsanti sopra · imposta <b>obiettivo, prezzo, incasso, giorni</b> · regola le conversioni più sotto · premi <b>Salva</b> → vale per tutto il team. Tutto il resto si ricalcola da solo.<br><span style="font-size:11.5px">💡 Il <b>prezzo medio</b> è una media dell'offerta a livelli (Sales Setup 4.900-7.900 · Hiring ~5.500 · SCALE 14.900). Il <b>ricorrente</b> = SOS/continuativo che incassi senza nuove vendite: il funnel lavora solo sul nuovo.</span></p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:8px">
       ${f.map(x=>`<div><div class="lbl" style="margin-bottom:5px">${x.l}</div><div style="display:flex;align-items:center;gap:6px"><input class="mm-base" data-k="${x.k}" type="number" step="${x.step}" min="0" value="${x.v}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-weight:700;font-size:15px;font-family:inherit"><span class="muted" style="font-weight:700">${x.u}</span></div></div>`).join('')}
       </div>
@@ -804,7 +812,7 @@ async function viewMarketingPlan(c){
   const note=el('div','card');
   note.innerHTML=`<div class="card-h"><h3>🧠 Le 3 cose da ricordare</h3></div>
     <ul style="margin:8px 0 0;padding-left:18px;line-height:1.7">
-      <li><b>80k è il bersaglio, non un risultato già preso.</b> Lo scenario ideale dimostra che è alla portata: ${idTot.v} vendite in un mese. Ora serve renderlo costante.</li>
+      <li><b>È una rampa, non un interruttore.</b> Si parte dalla base reale e si sale verso i 100K/m di Q4. Lo scenario ideale dimostra che il ritmo è alla portata (${idTot.v} vendite in un mese): ora serve renderlo costante.</li>
       <li><b>Si parte da Giugno e si struttura fino a Dicembre</b>, mese per mese. Ogni mese ha il suo obiettivo: gli admin lo definiscono qui sopra.</li>
       <li><b>Il punto debole è "Presentazioni → Vendite"</b> (dal 44% al 22%). Si vince lì, non sul budget né sul numero di lead.</li>
     </ul>
@@ -827,7 +835,7 @@ async function viewMarketingPlan(c){
   const rb=$('#mm-reset',bd); if(rb) rb.addEventListener('click',()=>{S.mkWork=null;rerender();});
   const sv=$('#mm-save',bd); if(sv) sv.addEventListener('click',async()=>{
     sv.disabled=true; sv.textContent='💾 Salvo…';
-    const{error}=await sb.from('marketing_months').update({obiettivo:w.obiettivo,ticket:w.ticket,incasso_pct:w.incasso_pct,gg_lav:w.gg_lav,rates:w.rates,active_scen:w.active_scen,updated_at:new Date().toISOString(),updated_by:S.user?.id||null}).eq('month',w.month);
+    const{error}=await sb.from('marketing_months').update({obiettivo:w.obiettivo,ricorrente:w.ricorrente||0,ticket:w.ticket,incasso_pct:w.incasso_pct,gg_lav:w.gg_lav,rates:w.rates,active_scen:w.active_scen,updated_at:new Date().toISOString(),updated_by:S.user?.id||null}).eq('month',w.month);
     if(error){toast('Errore salvataggio: '+error.message); sv.disabled=false; sv.textContent='💾 Riprova';}
     else{toast('✅ '+w.label+' salvato per tutto il team'); S.mkWork=null; rerender();}
   });
