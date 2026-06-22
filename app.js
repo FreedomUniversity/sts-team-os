@@ -1,5 +1,5 @@
 /* ===========================================================
-   STS Performance OS — app.js
+   Bussola (STS) — app.js
    Centro operativo: tracker reale + obiettivi + dashboard.
    Backend: Supabase (os_entries, profiles). Auth + RLS server-side.
    =========================================================== */
@@ -56,9 +56,10 @@ async function loadCatalog(){
         order.push(r.role);
       }
       built[r.role].kpis.push({key:r.kpi_key,label:r.label,unit:r.unit||'n',daily:+r.daily||0,descr:r.descr||'',kind:r.kind||'input',formula:r.formula||null,alert:r.alert!=null?+r.alert:null});
-      if(r.is_north) built[r.role].north=r.kpi_key;
+      // north valido solo se KPI di input con target giornaliero > 0 (no calc, no daily 0); primo vince
+      if(r.is_north && !built[r.role].north && (r.kind||'input')!=='calc' && +r.daily>0) built[r.role].north=r.kpi_key;
     });
-    Object.values(built).forEach(R=>{ if(!R.north && R.kpis[0]) R.north=R.kpis[0].key; });
+    Object.values(built).forEach(R=>{ if(!R.north){ const cand=R.kpis.find(k=>k.kind!=='calc'&&k.daily>0)||R.kpis[0]; if(cand) R.north=cand.key; } });
     order.sort((a,b)=>built[a].sort-built[b].sort);
     ROLES=built; ROLE_ORDER=order;
   }catch(e){ console.warn('loadCatalog fail, fallback attivo',e); }
@@ -83,7 +84,8 @@ const S = { user:null, profile:null, role:null, isAdmin:false, isManager:false, 
 const $ = (s,r=document)=>r.querySelector(s);
 const el = (tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
 const nf = new Intl.NumberFormat('it-IT');
-const fmtv = (v,unit)=> unit==='€' ? '€'+nf.format(Math.round(v)) : unit==='%' ? Math.round(v)+'%' : unit==='bool' ? (v>=1?'Sì':'No') : nf.format(Math.round(v));
+const fmtv = (v,unit)=>{ const n=Number(v)||0; return unit==='€' ? '€'+nf.format(Math.round(n)) : unit==='%' ? Math.round(n)+'%' : unit==='bool' ? (n>=1?'Sì':'No') : nf.format(Math.round(n)); };
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); // anti-injection per stringhe utente in innerHTML
 // metrica calcolata: formula "numKey/denKey" → ratio (0-1), null se denom 0
 function calcKpi(formula,vals){ if(!formula) return null; const p=formula.split('/'); const den=+vals[p[1]]||0; if(!den) return null; return (+vals[p[0]]||0)/den; }
 function fmtCalc(v,unit){ if(v==null) return '—'; if(unit==='%') return Math.round(v*100)+'%'; if(unit==='€') return '€'+nf.format(Math.round(v)); return nf.format(Math.round(v*100)/100); }
@@ -173,12 +175,14 @@ async function loadTargets(){
 /* ---------- DATA ---------- */
 async function myEntries(fromISO){
   if(DEMO) return demoFixtures().days;
-  const {data} = await sb.from('os_entries').select('day,kpis').eq('user_id',S.user.id).gte('day',fromISO).order('day');
+  const {data,error} = await sb.from('os_entries').select('day,kpis').eq('user_id',S.user.id).gte('day',fromISO).order('day');
+  if(error) console.warn('myEntries error',error);
   return data||[];
 }
 async function myToday(){
   if(DEMO){const d=demoFixtures().days;return d.length?{kpis:d[d.length-1].kpis}:null;}
-  const {data} = await sb.from('os_entries').select('id,kpis,note').eq('user_id',S.user.id).eq('day',isoDay(today())).maybeSingle();
+  const {data,error} = await sb.from('os_entries').select('id,kpis,note').eq('user_id',S.user.id).eq('day',isoDay(today())).maybeSingle();
+  if(error) console.warn('myToday error',error);
   return data;
 }
 // suggerimenti pre-compilati (CloudTalk/Pipedrive) per oggi
@@ -255,7 +259,7 @@ function renderLogin(msg){
   const w=el('div','login-wrap');
   w.innerHTML=`<form class="login" id="lgForm">
     <div class="lg-logo"><img src="logo-512.png" alt="Sales Team Solutions"></div>
-    <div class="lg-brand">STS Performance OS</div>
+    <div class="lg-brand">Bussola</div>
     <p class="lg-sub">Il centro operativo del team Sales Team Solutions.<br>Accedi con il tuo account.</p>
     <label>Email</label><input id="lgEmail" type="email" autocomplete="email" placeholder="nome@salesteamsolutions.info" required>
     <label>Password</label><input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••" required>
@@ -277,14 +281,14 @@ function shell(navItems,content){
   const name=S.profile?.display_name||S.user.email.split('@')[0];
   const roleLabel = S.isAdmin ? 'Admin' : (ROLES[S.role]?.label||'Collaboratore');
   wrap.innerHTML=`
-  <div class="topbar"><div class="tb-brand"><img class="brand-logo" src="logo-96.png" alt="STS"> STS Performance OS</div><button class="burger" id="burger">☰</button></div>
+  <div class="topbar"><div class="tb-brand"><img class="brand-logo" src="logo-96.png" alt="STS"> Bussola</div><button class="burger" id="burger">☰</button></div>
   <div class="scrim" id="scrim"></div>
   <div class="app">
     <aside class="sidebar ${S.sidebarOpen?'open':''}" id="sidebar">
-      <div class="sb-brand"><img class="brand-logo" src="logo-96.png" alt="STS"> STS Performance OS</div>
+      <div class="sb-brand"><img class="brand-logo" src="logo-96.png" alt="STS"> Bussola</div>
       <nav class="sb-nav">${navItems.map(n=>`<a class="sb-link ${n.id===S.view?'on':''}" data-v="${n.id}"><span class="i">${n.icon}</span>${n.label}</a>`).join('')}</nav>
       <div class="sb-foot">
-        <div class="sb-user"><div class="av">${initials(name)}</div><div><div class="nm">${name}</div><div class="rl">${roleLabel}</div></div></div>
+        <div class="sb-user"><div class="av">${initials(name)}</div><div><div class="nm">${esc(name)}</div><div class="rl">${roleLabel}</div></div></div>
         <button class="sb-logout" id="logout">↩ Esci</button>
       </div>
     </aside>
@@ -323,7 +327,7 @@ function renderApp(){
     else viewAdmin(c,'manager');
     return;
   }
-  if(!S.role){ renderNotAssigned(); return; }
+  if(!S.role || !ROLES[S.role]){ renderNotAssigned(); return; }
   const nav=[{id:'today',icon:'📌',label:'Oggi'},{id:'trend',icon:'📈',label:'Andamento'},{id:'plan',icon:'🗺️',label:'Piano Marketing'}];
   if(!['today','trend','plan'].includes(S.view))S.view='today';
   const c=el('div'); shell(nav,c);
@@ -409,6 +413,7 @@ async function viewTeamAssign(c){
     btn.disabled=false; btn.textContent='Crea login';
     if(error||r?.error){msg.style.color='var(--bad)';msg.textContent='Errore: '+(r?.error||error.message);return;}
     profs.push({id:r.id,display_name:name,role:'collaborator',sales_role:role,active:true,trackable:true});
+    _anCache=null;
     $('#naName',c).value='';$('#naEmail',c).value='';$('#naRole',c).value='';
     msg.style.color='var(--brand)';msg.textContent='✓ '+name+' creato. Login: '+email+' / CollabStore123!';
     toast(name+' aggiunto'); render();
@@ -437,7 +442,7 @@ async function viewTeamAssign(c){
   async function patch(id,field,value,p){
     const {error}=await sb.from('profiles').update({[field]:value}).eq('id',id);
     if(error){toast('Errore: '+error.message);return false;}
-    if(p)p[field]=value;return true;
+    if(p)p[field]=value; _anCache=null; return true; // invalida cache: Cabina/Analisi rileggono i dati freschi
   }
   function rowHtml(p){
     const nm=p.display_name||('utente '+p.id.slice(0,8));
@@ -462,12 +467,14 @@ async function viewTeamAssign(c){
     grp.forEach(g=>{ h+=`<tr><td colspan="4" style="background:var(--surface-2);padding:8px 12px">${g.label} <span class="muted" style="font-weight:600">· ${g.items.length}</span></td></tr>`; g.items.forEach(p=>h+=rowHtml(p)); });
     $('#raBody',c).innerHTML=h+'</tbody></table>';
     c.querySelectorAll('.ra-sel').forEach(s=>s.addEventListener('change',async()=>{
-      const p=profs.find(x=>x.id===s.dataset.id);
-      if(await patch(s.dataset.id,'sales_role',s.value||null,p)) toast(s.value?('Ruolo: '+ROLES[s.value].label):'Ruolo rimosso');
+      const p=profs.find(x=>x.id===s.dataset.id); s.disabled=true;
+      const ok=await patch(s.dataset.id,'sales_role',s.value||null,p); s.disabled=false;
+      if(ok) toast(s.value?('Ruolo: '+(ROLES[s.value]?.label||s.value)):'Ruolo rimosso');
     }));
     c.querySelectorAll('.ra-track').forEach(t=>t.addEventListener('change',async()=>{
-      const p=profs.find(x=>x.id===t.dataset.id);
-      if(await patch(t.dataset.id,'trackable',t.checked,p)) toast(t.checked?'Ora tracciato':'Escluso dal tracking');
+      const p=profs.find(x=>x.id===t.dataset.id); t.disabled=true;
+      const ok=await patch(t.dataset.id,'trackable',t.checked,p); t.disabled=false;
+      if(ok) toast(t.checked?'Ora tracciato':'Escluso dal tracking');
     }));
     c.querySelectorAll('.ra-rm').forEach(b=>b.addEventListener('click',async()=>{
       const p=profs.find(x=>x.id===b.dataset.id);
@@ -476,7 +483,7 @@ async function viewTeamAssign(c){
       const {data:r,error}=await sb.functions.invoke('team-admin',{body:{action:'delete',id:b.dataset.id}});
       if(error||r?.error){toast('Errore: '+(r?.error||error.message));b.textContent='🗑 Rimuovi';b.disabled=false;return;}
       const i=profs.findIndex(x=>x.id===b.dataset.id); if(i>=0)profs.splice(i,1);
-      toast((p?.display_name||'')+' eliminato'); render();
+      _anCache=null; toast((p?.display_name||'')+' eliminato'); render();
     }));
   }
   render();$('#raSearch',c).addEventListener('input',render);
@@ -487,13 +494,14 @@ async function viewToday(c){
   const role=ROLES[S.role];
   c.innerHTML=`<div class="page-head"><div><h1>Oggi · ${role.icon} ${role.label}</h1><p class="sub" id="dateSub"></p></div></div><div id="todayBody"><div class="empty">Carico i tuoi numeri…</div></div>`;
   $('#dateSub',c).textContent = today().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
-  const [entry,monthEntries,suggestion] = await Promise.all([myToday(),myEntries(isoDay(monthStart())),mySuggestion()]);
+  const wkStartISO=isoDay(weekStart()), monthStartISO=isoDay(monthStart());
+  const loadFromISO = wkStartISO<monthStartISO ? wkStartISO : monthStartISO; // copre la settimana a cavallo del mese
+  const [entry,monthEntries,suggestion] = await Promise.all([myToday(),myEntries(loadFromISO),mySuggestion()]);
   const cur = entry?.kpis||{};
   const sug = (!entry && suggestion?.kpis) ? suggestion.kpis : {}; // pre-fill solo se non ha già compilato
-  const wkStartISO=isoDay(weekStart());
   const monthSum={},weekSum={};
   role.kpis.forEach(k=>{monthSum[k.key]=0;weekSum[k.key]=0;});
-  monthEntries.forEach(e=>{role.kpis.forEach(k=>{const v=+(e.kpis?.[k.key]||0);monthSum[k.key]+=v;if(e.day>=wkStartISO)weekSum[k.key]+=v;});});
+  monthEntries.forEach(e=>{role.kpis.forEach(k=>{const v=+(e.kpis?.[k.key]||0);if(e.day>=monthStartISO)monthSum[k.key]+=v;if(e.day>=wkStartISO)weekSum[k.key]+=v;});});
   const wdM=workdaysElapsedMonth(), wdW=workdaysElapsedWeek();
 
   const body=$('#todayBody',c); body.innerHTML='';
@@ -855,7 +863,7 @@ async function viewAdmin(c,sub){
       <input type="date" id="cabTo" value="${S.cabPeriod.to||''}">
       <button class="anchip${m==='custom'?' on':''}" id="cabApply">Applica</button></div></div>`;
     $('#cabCtrl',c).querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{S.cabPeriod={mode:b.dataset.m,from:null,to:null};wire();paint();}));
-    const ap=$('#cabApply',c);if(ap)ap.addEventListener('click',()=>{const f=$('#cabFrom',c).value,t=$('#cabTo',c).value;if(f&&t){S.cabPeriod={mode:'custom',from:f,to:t};wire();paint();}else toast('Scegli inizio e fine');});
+    const ap=$('#cabApply',c);if(ap)ap.addEventListener('click',()=>{let f=$('#cabFrom',c).value,t=$('#cabTo',c).value;if(f&&t){if(f>t){const x=f;f=t;t=x;}S.cabPeriod={mode:'custom',from:f,to:t};wire();paint();}else toast('Scegli inizio e fine');});
   }
   const copyMsg=t=>{ if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>toast('Messaggio copiato — incollalo dove vuoi'),()=>toast('Copia non riuscita')); else toast('Copia non disponibile'); };
   function streakOf(pid){ const set=new Set(entries.filter(e=>e.user_id===pid).map(e=>e.day)); let s=0,probe=new Date(today()); if(!set.has(isoDay(probe)))probe.setDate(probe.getDate()-1); for(let i=0;i<40;i++){if(probe.getDay()===0){probe.setDate(probe.getDate()-1);continue;}if(set.has(isoDay(probe))){s++;probe.setDate(probe.getDate()-1);}else break;} return s; }
@@ -934,7 +942,7 @@ async function viewAdmin(c,sub){
         <div class="bar ${gst}"><span style="width:${Math.min(100,Math.round(gpct*100))}%"></span></div>
         <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:14px;font-size:13px">
           <div><div class="muted" style="font-size:11px">Raggiunto</div><b style="font-size:16px">${Math.round(gpct*100)}%</b></div>
-          <div><div class="muted" style="font-size:11px">A ritmo costante chiudi a</div><b style="font-size:16px;color:${projFatt>=obj?'var(--good)':'var(--warn)'}">€${nf.format(Math.round(projFatt))}</b> <span class="muted">(${Math.round(proj)} vendite)</span></div>
+          <div><div class="muted" style="font-size:11px">A ritmo costante chiudi a</div>${wdEl>=3?`<b style="font-size:16px;color:${projFatt>=obj?'var(--good)':'var(--warn)'}">€${nf.format(Math.round(projFatt))}</b> <span class="muted">(${Math.round(proj)} vendite)</span>`:`<b style="font-size:16px">—</b> <span class="muted">(servono ~3 giorni di dati)</span>`}</div>
           <div><div class="muted" style="font-size:11px">Mancano</div><b style="font-size:16px">€${nf.format(Math.max(0,Math.round(obj-fatt)))}</b></div>
           <div><div class="muted" style="font-size:11px">Giorni mese</div><b style="font-size:16px">${wdEl}/${GGM}</b></div>
         </div>
@@ -1190,7 +1198,7 @@ async function viewAnalytics(c,scope){
       <input type="date" id="anTo" value="${S.period.to||''}">
       <button class="anchip${m==='custom'?' on':''}" id="anApply">Applica</button></div></div>`;
     $('#anCtrl',c).querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{S.period={mode:b.dataset.m,from:null,to:null};wire();paint();}));
-    const ap=$('#anApply',c);if(ap)ap.addEventListener('click',()=>{const f=$('#anFrom',c).value,t=$('#anTo',c).value;if(f&&t){S.period={mode:'custom',from:f,to:t};wire();paint();}else toast('Scegli data inizio e fine');});
+    const ap=$('#anApply',c);if(ap)ap.addEventListener('click',()=>{let f=$('#anFrom',c).value,t=$('#anTo',c).value;if(f&&t){if(f>t){const x=f;f=t;t=x;}S.period={mode:'custom',from:f,to:t};wire();paint();}else toast('Scegli data inizio e fine');});
   }
   function paint(){
     const {from,to,label}=range();
