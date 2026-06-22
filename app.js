@@ -610,6 +610,8 @@ async function viewToday(c){
     saveBtn.disabled=true; saveBtn.textContent='Salvo…';
     const {error}=await saveToday(kpis);
     if(error){saveBtn.disabled=false;saveBtn.textContent='💾 Salva la giornata';msg.style.color='var(--bad)';msg.textContent='Errore: '+error.message;return;}
+    const todayNorth=+(v[north.key]||0), hitTarget=north.daily>0 && todayNorth>=north.daily;
+    toast(hitTarget ? '🎯 Target di oggi raggiunto! Grande.' : '💪 Numeri salvati. La costanza fa la differenza.');
     viewToday(c); // ricarica con i nuovi numeri
   });
 }
@@ -620,6 +622,9 @@ async function viewTrend(c){
   c.innerHTML=`<div class="page-head"><div><h1>Andamento · ${role.icon} ${role.label}</h1><p class="sub">Il tuo storico del mese e la proiezione di fine mese.</p></div></div><div id="trendBody"><div class="empty">Carico…</div></div>`;
   const entries=await myEntries(isoDay(monthStart()));
   const body=$('#trendBody',c); body.innerHTML='';
+  if(!entries.length){ const wc=el('div','banner info'); wc.style.marginBottom='16px';
+    wc.innerHTML='👋 Ancora nessun dato questo mese. Vai su <b>Oggi</b> e metti i tuoi numeri: qui vedrai crescere il tuo andamento e la proiezione di fine mese.';
+    body.appendChild(wc); }
   const north=role.kpis.find(k=>k.key===role.north)||role.kpis[0];
   // serie giornaliera del north per spark
   const byDay={}; entries.forEach(e=>byDay[e.day]=+(e.kpis?.[north.key]||0));
