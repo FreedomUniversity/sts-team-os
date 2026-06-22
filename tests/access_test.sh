@@ -1,18 +1,22 @@
 #!/bin/zsh
 # ============================================================
-# Freedom Performance OS — test accesso/RLS end-to-end
+# STS Performance OS — test accesso/RLS end-to-end (os_entries/os_targets)
 # Verifica che l'isolamento dati sia VERO lato server (non solo UI).
 # Idempotente: assegna ruolo di test, scrive, verifica, pulisce.
-# Uso: ./access_test.sh   (richiede ~/.config/anon o legge dall'app)
+#
+# ⚠️  RICHIEDE UN TEST-USER STS REALE: imposta COLLAB_EMAIL / PW / TID sotto
+#     con un collaboratore di prova del progetto STS prima di eseguire
+#     (i valori sono PLACEHOLDER, non eseguire finché non li sostituisci).
+#     Per un test RLS senza credenziali usa: ./tests/marketing_rls_test.sh
 # ============================================================
 set -e
-REF=cqktepwrpalwyvrdproh
+REF=sbghltmjgllhsgioudlv                          # progetto Supabase STS (corretto, era ref FU)
 BASE="https://$REF.supabase.co"
 ANON=$(grep -o "SUPABASE_ANON *= *'[^']*'" "$(dirname "$0")/../app.js" | head -1 | sed "s/.*'\(.*\)'/\1/")
-ADMIN_EMAIL="infoclaudiocavalli@gmail.com"
-COLLAB_EMAIL="alessandro@freedomuniversity.it"
-PW="CollabStore123!"
-TID="1ad4c0b3-c14d-42e4-ad7f-d0ca37b67715"   # Alessandro (utente di test)
+ADMIN_EMAIL="infoclaudiocavalli@gmail.com"        # admin STS
+COLLAB_EMAIL="PLACEHOLDER@salesteamsolutions.info"  # ⚠️ metti un collaboratore di test STS
+PW="PLACEHOLDER_PW"                               # ⚠️ password del test-user STS
+TID="PLACEHOLDER_UUID"                            # ⚠️ uuid (profiles.id) del test-user STS
 TODAY=$(date +%F)
 PASS=0; FAIL=0
 ok(){ echo "  ✅ $1"; PASS=$((PASS+1)); }

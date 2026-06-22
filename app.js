@@ -699,7 +699,7 @@ async function viewMarketingPlan(c){
   <div class="muted" style="font-size:11px;padding:8px 16px 14px">*Budget stimato sullo scenario impostato per ogni mese.</div>`;
   bd.appendChild(ov);
 
-  if(row.note){ const nb=el('div','banner info'); nb.style.marginBottom='16px'; nb.innerHTML=`🎯 <b>${w.label}:</b> ${row.note}`; bd.appendChild(nb); }
+  if(row.note){ const nb=el('div','banner info'); nb.style.marginBottom='16px'; nb.innerHTML=`🎯 <b>${w.label}:</b> ${row.note}${row.updated_by&&row.updated_at?` <span class="muted" style="font-weight:400">· ultima modifica admin ${new Date(row.updated_at).toLocaleDateString('it-IT',{day:'numeric',month:'long'})}</span>`:''}`; bd.appendChild(nb); }
 
   // ===== BARRA EDIT (solo admin) =====
   if(isAdmin){
