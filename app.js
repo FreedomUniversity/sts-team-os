@@ -9,8 +9,9 @@ const { createClient } = window.supabase;
 /* ---------- CONFIG ---------- */
 const SUPABASE_URL = 'https://sbghltmjgllhsgioudlv.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2hsdG1qZ2xsaHNnaW91ZGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MDc4MjAsImV4cCI6MjA5NzA4MzgyMH0.Od053JbPpWM0QYuXq-eSUjcOFjjvFMr3K_DdOjsq58U';
-const WORKDAYS_WEEK = 6;   // giorni lavorativi/settimana (placeholder, configurabile)
-const WORKDAYS_MONTH = 26; // giorni lavorativi/mese (placeholder)
+const WORKDAYS_WEEK = 5;   // giorni lavorativi/settimana (Lun–Ven)
+const WORKDAYS_MONTH = 22; // giorni lavorativi/mese medi (Lun–Ven)
+const isWorkday = d => { const g=d.getDay(); return g!==0 && g!==6; }; // Lun–Ven (no sab/dom)
 
 /* KPI + TARGET per ruolo.
    ⚙️ DINAMICO: a runtime ROLES/ROLE_ORDER vengono RICOSTRUITI da DB (kpi_catalog) via loadCatalog().
@@ -72,7 +73,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {auth:{persistSession:true,
 const DEMO = new URLSearchParams(location.search).get('demo');
 function demoFixtures(){
   const t=new Date(), ms=new Date(t.getFullYear(),t.getMonth(),1);
-  const days=[]; for(let d=new Date(ms);d<=t;d.setDate(d.getDate()+1)){if(d.getDay()===0)continue;
+  const days=[]; for(let d=new Date(ms);d<=t;d.setDate(d.getDate()+1)){if(!isWorkday(d))continue;
     days.push({day:isoDay(d),kpis:{call:4+(d.getDate()%4),vendite:(d.getDate()%3===0?1:0)+(d.getDate()%5===0?1:0),cash:800+(d.getDate()*137%2600)}});}
   return {days};
 }
@@ -96,8 +97,8 @@ function monthStart(d=today()){return new Date(d.getFullYear(),d.getMonth(),1);}
 function weekStart(d=today()){const x=new Date(d);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);x.setHours(0,0,0,0);return x;} // lunedì
 function daysBetween(a,b){return Math.floor((b-a)/86400000);}
 // giorni lavorativi (lun-sab) trascorsi dall'inizio mese fino a oggi incluso
-function workdaysElapsedMonth(){const s=monthStart(),t=today();let n=0;for(let d=new Date(s);d<=t;d.setDate(d.getDate()+1)){if(d.getDay()!==0)n++;}return Math.max(1,n);}
-function workdaysElapsedWeek(){const s=weekStart(),t=today();let n=0;for(let d=new Date(s);d<=t;d.setDate(d.getDate()+1)){if(d.getDay()!==0)n++;}return Math.max(1,n);}
+function workdaysElapsedMonth(){const s=monthStart(),t=today();let n=0;for(let d=new Date(s);d<=t;d.setDate(d.getDate()+1)){if(isWorkday(d))n++;}return Math.max(1,n);}
+function workdaysElapsedWeek(){const s=weekStart(),t=today();let n=0;for(let d=new Date(s);d<=t;d.setDate(d.getDate()+1)){if(isWorkday(d))n++;}return Math.max(1,n);}
 function statusOf(pct){return pct>=1?'good':pct>=0.6?'warn':'bad';}
 function statusLabel(st){return st==='good'?'in linea':st==='warn'?'sotto ritmo':'in ritardo';}
 function initials(name){return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
@@ -125,7 +126,7 @@ function gameStats(entriesByDay, role, fromD, toD){
   const nk=R.kpis.find(k=>k.key===R.north)||R.kpis[0]; const tgt=nk?+nk.daily:0; const tIso=isoDay(today());
   let bal=0,plus=0,minus=0,zero=0;
   for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){
-    if(d.getDay()===0) continue;                       // niente domenica
+    if(!isWorkday(d)) continue;                         // Lun–Ven (no sab/dom)
     const iso=isoDay(d); const e=entriesByDay[iso];
     if(iso===tIso && !e) continue;                     // oggi non ancora compilato → nessun malus
     const compiled=!!e; const pct=(compiled&&tgt>0)?(+(e[nk.key]||0)/tgt):0;
@@ -229,7 +230,7 @@ async function analyticsData(){
       const R=ROLES[p.sales_role]; const diligence=0.45+(i%5)*0.13; // chi compila più spesso
       for(let back=0;back<45;back++){
         const d=new Date(end);d.setDate(d.getDate()-back);
-        if(d.getDay()===0)continue;                          // niente domenica
+        if(!isWorkday(d))continue;                          // niente domenica
         const wd=d.getDay();
         const weekdayBoost = wd===2||wd===3?1.18:wd===5?0.8:1; // mar/mer top, ven calo
         if((Math.sin(i*9.7+back*1.3)+1)/2 > diligence) continue; // alcuni giorni non compila
@@ -541,7 +542,7 @@ async function viewToday(c){
   const daySet=new Set(monthEntries.map(e=>e.day));
   let streak=0, probe=new Date(today());
   if(!daySet.has(isoDay(probe))) probe.setDate(probe.getDate()-1); // se oggi non ancora compilato, non spezzare
-  for(let i=0;i<62;i++){ if(probe.getDay()===0){probe.setDate(probe.getDate()-1);continue;} if(daySet.has(isoDay(probe))){streak++;probe.setDate(probe.getDate()-1);} else break; }
+  for(let i=0;i<62;i++){ if(!isWorkday(probe)){probe.setDate(probe.getDate()-1);continue;} if(daySet.has(isoDay(probe))){streak++;probe.setDate(probe.getDate()-1);} else break; }
   if(streak>0){ const sc=el('div','banner good'); sc.style.marginTop='16px';
     sc.innerHTML=`🔥 <b>${streak} giorn${streak===1?'o':'i'} di fila</b> che compili. L'abitudine è metà del risultato — non spezzarla.`;
     body.appendChild(sc); }
@@ -896,11 +897,11 @@ async function viewAdmin(c,sub){
     const ap=$('#cabApply',c);if(ap)ap.addEventListener('click',()=>{let f=$('#cabFrom',c).value,t=$('#cabTo',c).value;if(f&&t){if(f>t){const x=f;f=t;t=x;}S.cabPeriod={mode:'custom',from:f,to:t};wire();paint();}else toast('Scegli inizio e fine');});
   }
   const copyMsg=t=>{ if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>toast('Messaggio copiato — incollalo dove vuoi'),()=>toast('Copia non riuscita')); else toast('Copia non disponibile'); };
-  function streakOf(pid){ const set=new Set(entries.filter(e=>e.user_id===pid).map(e=>e.day)); let s=0,probe=new Date(today()); if(!set.has(isoDay(probe)))probe.setDate(probe.getDate()-1); for(let i=0;i<40;i++){if(probe.getDay()===0){probe.setDate(probe.getDate()-1);continue;}if(set.has(isoDay(probe))){s++;probe.setDate(probe.getDate()-1);}else break;} return s; }
+  function streakOf(pid){ const set=new Set(entries.filter(e=>e.user_id===pid).map(e=>e.day)); let s=0,probe=new Date(today()); if(!set.has(isoDay(probe)))probe.setDate(probe.getDate()-1); for(let i=0;i<40;i++){if(!isWorkday(probe)){probe.setDate(probe.getDate()-1);continue;}if(set.has(isoDay(probe))){s++;probe.setDate(probe.getDate()-1);}else break;} return s; }
 
   function paint(){
     const {from,to,label}=range();
-    let wd=0; for(let d=new Date(from+'T00:00:00'),tD=new Date(to+'T00:00:00');d<=tD;d.setDate(d.getDate()+1)){if(d.getDay()!==0)wd++;} wd=Math.max(1,wd);
+    let wd=0; for(let d=new Date(from+'T00:00:00'),tD=new Date(to+'T00:00:00');d<=tD;d.setDate(d.getDate()+1)){if(isWorkday(d))wd++;} wd=Math.max(1,wd);
     const inP=entries.filter(e=>e.day>=from&&e.day<=to&&collabIds.has(e.user_id));
     const byUser={}; inP.forEach(e=>{(byUser[e.user_id]=byUser[e.user_id]||[]).push(e);});
     const people=collaborators.map(p=>{
