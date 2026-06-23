@@ -359,6 +359,7 @@ function toast(msg){let t=$('#toast');if(!t){t=el('div');t.id='toast';t.style.cs
 /* ---------- ADMIN: OBIETTIVI (editor target) ---------- */
 async function viewTargets(c){
   c.innerHTML=`<div class="page-head"><div><h1>🎯 Obiettivi</h1><p class="sub">Target giornalieri per ruolo (tutti gli ${ROLE_ORDER.length} reparti). Da qui "sotto/sopra ritmo" diventa reale per il team.</p></div></div>
+  <div class="banner warn" style="margin-bottom:14px">📋 <b>Valori di partenza stimati</b> (modello iniziale, settimana Lun–Ven). Tarali sui numeri reali con Lorenzo: target finti generano "sotto ritmo" ingiusti.</div>
   <input id="tgFilter" placeholder="🔎 Filtra reparto…" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:11px;margin-bottom:14px;font-size:15px">
   <div id="tgBody"></div>`;
   const body=$('#tgBody',c);
