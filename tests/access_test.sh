@@ -14,7 +14,7 @@ REF=sbghltmjgllhsgioudlv                          # progetto Supabase STS (corre
 BASE="https://$REF.supabase.co"
 ANON=$(grep -o "SUPABASE_ANON *= *'[^']*'" "$(dirname "$0")/../app.js" | head -1 | sed "s/.*'\(.*\)'/\1/")
 ADMIN_EMAIL="infoclaudiocavalli@gmail.com"        # admin STS
-COLLAB_EMAIL="PLACEHOLDER@salesteamsolutions.info"  # ⚠️ metti un collaboratore di test STS
+COLLAB_EMAIL="PLACEHOLDER@salesteamsolutions.it"  # ⚠️ metti un collaboratore di test STS
 PW="PLACEHOLDER_PW"                               # ⚠️ password del test-user STS
 TID="PLACEHOLDER_UUID"                            # ⚠️ uuid (profiles.id) del test-user STS
 TODAY=$(date +%F)

@@ -140,7 +140,7 @@ function mount(node){const r=$('#root');r.innerHTML='';r.appendChild(node);}
 /* ---------- AUTH ---------- */
 async function boot(){
   if(DEMO){
-    S.user={id:'demo',email:'demo@salesteamsolutions.info'};
+    S.user={id:'demo',email:'demo@salesteamsolutions.it'};
     S.profile={display_name: DEMO==='admin'?'Jonny Pancaldi':'Mario Rossi'};
     const dv=new URLSearchParams(location.search).get('view');
     if(DEMO==='admin'){S.isAdmin=true;S.view=dv||'admin';}
@@ -262,7 +262,7 @@ function renderLogin(msg){
     <div class="lg-logo"><img src="logo-512.png" alt="Sales Team Solutions"></div>
     <div class="lg-brand">Bussola</div>
     <p class="lg-sub">Il centro operativo del team Sales Team Solutions.<br>Accedi con il tuo account.</p>
-    <label>Email</label><input id="lgEmail" type="email" autocomplete="email" placeholder="nome@salesteamsolutions.info" required>
+    <label>Email</label><input id="lgEmail" type="email" autocomplete="email" placeholder="nome@salesteamsolutions.it" required>
     <label>Password</label><input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••" required>
     <button class="btn btn-primary btn-block" type="submit" style="margin-top:20px">Entra</button>
     <div class="lg-msg ${msg?'err':''}" id="lgMsg">${msg||''}</div>
@@ -401,7 +401,7 @@ async function viewTeamAssign(c){
     <div class="card-h"><h3>Nuovo collaboratore</h3></div>
     <div class="datectl" style="gap:10px">
       <input id="naName" placeholder="Nome" style="flex:1;min-width:140px;padding:9px 12px;border:1px solid var(--line);border-radius:10px">
-      <input id="naEmail" type="email" placeholder="email@salesteamsolutions.info" style="flex:2;min-width:200px;padding:9px 12px;border:1px solid var(--line);border-radius:10px">
+      <input id="naEmail" type="email" placeholder="email@salesteamsolutions.it" style="flex:2;min-width:200px;padding:9px 12px;border:1px solid var(--line);border-radius:10px">
       <select id="naRole" style="padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:600"></select>
       <button class="btn btn-primary" id="naCreate">Crea login</button>
     </div>
